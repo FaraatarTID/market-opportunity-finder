@@ -9,7 +9,8 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to Market Opportunity Finder API"}
+    # Now serves the frontend HTML
+    assert "text/html" in response.headers.get("content-type", "")
 
 def test_analyze_market_valid_country():
     # This might fail if external APIs are down or rate limited, so we should mock ideally.

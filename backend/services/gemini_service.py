@@ -10,6 +10,7 @@ class GeminiService:
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             logger.warning("GEMINI_API_KEY not found in environment variables.")
+            self.model = None
         else:
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel('gemini-1.5-flash')
@@ -37,6 +38,9 @@ class GeminiService:
         """
         
         try:
+            if not self.model:
+                raise Exception("Gemini API key not configured")
+                
             response = self.model.generate_content(prompt)
             # Extract JSON from response (handle potential markdown formatting)
             text = response.text
