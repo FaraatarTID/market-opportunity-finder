@@ -1,5 +1,5 @@
-from .data_collector import DataCollector
-from .gemini_service import GeminiService
+from services.data_collector import DataCollector
+from services.gemini_service import GeminiService
 import logging
 
 logger = logging.getLogger(__name__)

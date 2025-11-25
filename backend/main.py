@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .api import markets
+from api import markets
 
 app = FastAPI(title="Market Opportunity Finder")
 

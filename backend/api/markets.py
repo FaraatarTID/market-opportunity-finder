@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from ..services.scoring_engine import ScoringEngine
+from services.scoring_engine import ScoringEngine
 
 router = APIRouter()
 scoring_engine = ScoringEngine()
