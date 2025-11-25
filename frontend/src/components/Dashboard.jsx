@@ -14,9 +14,8 @@ const Dashboard = () => {
         setLoading(true);
         setError(null);
         try {
-            // For demo purposes, we might need a way to map country name to code or just pass name
-            // Here we assume the user enters a name and we pass a dummy code or handle it in backend
-            const data = await analyzeMarket("XX", country); 
+            // Pass the country name directly. The backend now handles the lookup.
+            const data = await analyzeMarket("XX", country);
             setResult(data);
         } catch (err) {
             setError("Failed to analyze market. Please try again.");
@@ -66,11 +65,10 @@ const Dashboard = () => {
                                     <h3 className="text-2xl font-bold text-gray-900">{result.country}</h3>
                                     <p className="text-sm text-gray-500">Market Analysis</p>
                                 </div>
-                                <div className={`px-4 py-2 rounded-lg font-bold text-xl ${
-                                    result.analysis.score >= 70 ? 'bg-green-100 text-green-700' :
-                                    result.analysis.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-red-100 text-red-700'
-                                }`}>
+                                <div className={`px-4 py-2 rounded-lg font-bold text-xl ${result.analysis.score >= 70 ? 'bg-green-100 text-green-700' :
+                                        result.analysis.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                            'bg-red-100 text-red-700'
+                                    }`}>
                                     {result.analysis.score}/100
                                 </div>
                             </div>
@@ -124,7 +122,7 @@ const Dashboard = () => {
 
                 {/* Right Column: Map */}
                 <div className="lg:col-span-2 h-[600px] bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                    <MapComponent markers={result ? [{ lat: 20, lng: 0, country: result.country, score: result.analysis.score }] : []} />
+                    <MapComponent markers={result && result.data.lat && result.data.lng ? [{ lat: result.data.lat, lng: result.data.lng, country: result.country, score: result.analysis.score }] : []} />
                 </div>
             </div>
         </div>

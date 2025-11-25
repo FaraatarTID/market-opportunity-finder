@@ -1,8 +1,10 @@
 fastapi
 uvicorn
-pydantic
-python-dotenv
 requests
 google-generativeai
+python-dotenv
+pycountry
+pytest
+httpx
 beautifulsoup4
 pandas
