@@ -1,13 +1,14 @@
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file FIRST, before importing modules that need them
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api import markets
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
 
 app = FastAPI(title="Market Opportunity Finder")
 

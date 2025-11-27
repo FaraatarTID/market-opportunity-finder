@@ -17,7 +17,7 @@ const Dashboard = () => {
             // Pass the country name directly. The backend now handles the lookup.
             const data = await analyzeMarket("XX", country);
             setResult(data);
-        } catch (err) {
+        } catch (_err) {
             setError("Failed to analyze market. Please try again.");
         } finally {
             setLoading(false);
@@ -66,8 +66,8 @@ const Dashboard = () => {
                                     <p className="text-sm text-gray-500">Market Analysis</p>
                                 </div>
                                 <div className={`px-4 py-2 rounded-lg font-bold text-xl ${result.analysis.score >= 70 ? 'bg-green-100 text-green-700' :
-                                        result.analysis.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
+                                    result.analysis.score >= 40 ? 'bg-yellow-100 text-yellow-700' :
+                                        'bg-red-100 text-red-700'
                                     }`}>
                                     {result.analysis.score}/100
                                 </div>

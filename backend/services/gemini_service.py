@@ -9,11 +9,10 @@ class GeminiService:
     def __init__(self):
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
-            logger.warning("GEMINI_API_KEY not found in environment variables.")
-            self.model = None
-        else:
-            genai.configure(api_key=api_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            logger.error("GEMINI_API_KEY not found in environment variables.")
+            raise GeminiConfigurationError("GEMINI_API_KEY not configured.")
+        genai.configure(api_key=api_key)
+        self.model = genai.GenerativeModel('gemini-flash-latest')
 
     def analyze_market(self, country_name: str, data: dict) -> dict:
         """

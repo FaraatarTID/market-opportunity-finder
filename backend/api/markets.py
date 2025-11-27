@@ -1,3 +1,4 @@
+from exceptions import GeminiConfigurationError
 from fastapi import APIRouter, HTTPException
 import pycountry
 from pydantic import BaseModel
@@ -24,5 +25,7 @@ async def analyze_market(request: MarketRequest):
     try:
         result = scoring_engine.score_country(country_code, country_name)
         return result
+    except GeminiConfigurationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
