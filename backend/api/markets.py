@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from services.scoring_engine import ScoringEngine
 
 router = APIRouter()
-scoring_engine = ScoringEngine()
 
 class MarketRequest(BaseModel):
     country_name: str
@@ -23,6 +22,8 @@ async def analyze_market(request: MarketRequest):
         raise HTTPException(status_code=500, detail=f"Error validating country: {str(e)}")
 
     try:
+        # Initialize scoring engine inside the handler to avoid module-level initialization errors
+        scoring_engine = ScoringEngine()
         result = scoring_engine.score_country(country_code, country_name)
         return result
     except GeminiConfigurationError as e:

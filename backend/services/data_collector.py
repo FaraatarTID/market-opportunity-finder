@@ -1,5 +1,6 @@
 import requests
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +81,44 @@ class DataCollector:
         if not population:
             return 0
         return int(population * 0.3)
+
+    def get_regional_news(self, country_name: str):
+        """
+        Fetches news about tire recycling and trade in the specified country using Brave Search API.
+        """
+        api_key = os.getenv("BRAVE_API_KEY")
+        if not api_key:
+            logger.warning("BRAVE_API_KEY not found. Skipping news search.")
+            return []
+
+        # Construct a query that targets the specific requirements
+        query = f"tire recycling projects news {country_name} Iran export trade"
+        url = "https://api.search.brave.com/res/v1/web/search"
+        headers = {
+            "X-Subscription-Token": api_key,
+            "Accept": "application/json"
+        }
+        params = {
+            "q": query,
+            "count": 5,
+            "freshness": "py"  # Past year
+        }
+
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = []
+            if "web" in data and "results" in data["web"]:
+                for item in data["web"]["results"]:
+                    results.append({
+                        "title": item.get("title"),
+                        "url": item.get("url"),
+                        "description": item.get("description"),
+                        "age": item.get("age")
+                    })
+            return results
+        except Exception as e:
+            logger.error(f"Error fetching news for {country_name}: {e}")
+            return []

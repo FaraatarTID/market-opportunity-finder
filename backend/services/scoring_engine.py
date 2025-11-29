@@ -1,5 +1,5 @@
 from services.data_collector import DataCollector
-from services.gemini_service import GeminiService
+from services.gemini_service import GeminiService, GeminiConfigurationError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,16 +19,24 @@ class ScoringEngine:
         tire_waste = self.data_collector.get_tire_waste_estimate(data.get("population"))
         data["tire_waste"] = tire_waste
         
+        # Collect News
+        news = self.data_collector.get_regional_news(country_name)
+        data["news"] = news
+        
         if not self.gemini_service:
             raise GeminiConfigurationError("Gemini service not configured.")
         # 2. Analyze with Gemini
         analysis = self.gemini_service.analyze_market(country_name, data)
         
-        # 3. Combine results
+        # 3. Translate to Persian for Iranian users
+        analysis_persian = self.gemini_service.translate_to_persian(analysis, country_name)
+        
+        # 4. Combine results
         result = {
             "country": country_name,
             "country_code": country_code,
             "data": data,
-            "analysis": analysis
+            "analysis": analysis,
+            "analysis_persian": analysis_persian
         }
         return result
