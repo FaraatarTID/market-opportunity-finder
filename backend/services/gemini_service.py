@@ -33,37 +33,149 @@ class GeminiService:
 
     def analyze_market(self, country_name: str, data: dict) -> dict:
         """
-        Analyzes market potential using Gemini.
+        Analyzes market potential using Gemini with advanced analytical frameworks.
         """
         prompt = f"""
-        Analyze the tire recycling market opportunity in {country_name}.
+        You are a strategic business analyst specializing in international market entry for tire recycling companies.
+        Conduct a comprehensive, critical analysis of the tire recycling market opportunity in {country_name} for an Iranian company.
         
-        Context:
-        - The user is an Iranian company looking to export tire recycling products (or set up projects) to {country_name}.
-        - Analysis MUST consider this export relationship from Iran.
+        **CRITICAL CONTEXT:**
+        - The client is an Iranian company seeking to export tire recycling products OR establish recycling projects in {country_name}
+        - Iran faces international sanctions - this MUST be factored into all analysis
+        - Analysis must be realistic, critical, and actionable - not generic or overly optimistic
         
-        Data provided:
-        - GDP: {data.get('gdp')}
-        - Population: {data.get('population')}
-        - Estimated Tire Waste: {data.get('tire_waste')}
+        **DATA PROVIDED:**
+        - GDP: ${data.get('gdp', 0):,.0f}
+        - Population: {data.get('population', 0):,.0f}
+        - Estimated Annual Tire Waste: {data.get('tire_waste', 0):,.0f} units
         
-        Recent News Headlines (for context):
-        {json.dumps(data.get('news', []), indent=2)}
+        **RECENT NEWS & MARKET INTELLIGENCE:**
+        {json.dumps(data.get('news', []), indent=2, ensure_ascii=False)}
         
-        Please provide a JSON response with the following fields:
-        - score (0-100): Overall market attractiveness score.
-        - reasoning: A brief explanation of the score, incorporating the news and export context.
-        - risks: List of potential risks (political, economic, sanctions, etc.).
-        - opportunities: List of specific opportunities.
-        - regulations: Summary of relevant environmental regulations.
-        - news_analysis: A detailed analysis of the provided news headlines and how they impact the opportunity. 
-          Format this as numbered points (1. 2. 3.) with bold headers using **Header:** followed by explanation.
-          Each numbered point should start on a new line. Use this format:
-          "1. **Key Point Title:** Explanation text here. 2. **Another Point:** More explanation."
-        - news_references: List of objects with "title" and "url" for each news source mentioned in the analysis.
-          Extract these from the news headlines provided above.
+        **ANALYTICAL FRAMEWORK - Apply ALL of the following:**
         
-        Ensure the response is valid JSON.
+        1. **SWOT ANALYSIS** (Iran-{country_name} tire recycling context):
+           - Strengths: What advantages does this market offer?
+           - Weaknesses: What limitations or challenges exist?
+           - Opportunities: What specific opportunities can be exploited?
+           - Threats: What risks could derail success?
+        
+        2. **PORTER'S FIVE FORCES** (Competitive Analysis):
+           - Threat of new entrants
+           - Bargaining power of suppliers
+           - Bargaining power of buyers
+           - Threat of substitutes
+           - Competitive rivalry
+        
+        3. **PESTEL ANALYSIS**:
+           - Political: Iran relations, sanctions impact, government stability
+           - Economic: Market size, growth, purchasing power
+           - Social: Environmental awareness, waste management culture
+           - Technological: Infrastructure, recycling technology adoption
+           - Environmental: Regulations, tire waste problem severity
+           - Legal: Trade laws, compliance requirements
+        
+        4. **NEWS ANALYSIS - Critical Interpretation**:
+           - Identify trends and patterns from the news
+           - Assess geopolitical implications for Iran-{country_name} trade
+           - Identify competitors or market players mentioned
+           - Determine market timing (is now the right time?)
+           - Extract actionable intelligence
+        
+        **REQUIRED OUTPUT (JSON format):**
+        {{
+            "score": <0-100 overall attractiveness>,
+            
+            "dimensional_scores": {{
+                "market_attractiveness": <0-100: market size, growth, demand>,
+                "entry_feasibility": <0-100: ease of entry, barriers, regulations>,
+                "political_risk": <0-100: higher = lower risk, sanctions, stability>,
+                "financial_viability": <0-100: ROI potential, profitability>,
+                "strategic_fit": <0-100: alignment with Iranian capabilities>
+            }},
+            
+            "reasoning": "<2-3 sentences explaining the overall score and key factors>",
+            
+            "competitive_landscape": {{
+                "market_saturation": "<Low/Medium/High>",
+                "key_players": ["<list existing competitors if identified from news>"],
+                "competitive_advantage": "<What unique advantage can Iranian company bring?>",
+                "market_gaps": "<Underserved segments or opportunities>"
+            }},
+            
+            "market_entry_strategy": {{
+                "recommended_approach": "<Direct Export / Joint Venture / Licensing / Greenfield Investment / etc.>",
+                "rationale": "<Why this approach is best>",
+                "key_partners": ["<Types of local partners to seek>"],
+                "entry_barriers": ["<Specific barriers to overcome>"],
+                "timeline": "<Estimated time to market entry>"
+            }},
+            
+            "financial_projections": {{
+                "estimated_market_size_usd": <annual market size estimate>,
+                "potential_market_share": "<realistic % achievable in 3-5 years>",
+                "estimated_revenue_year1": <USD>,
+                "estimated_revenue_year3": <USD>,
+                "initial_investment_required": <USD estimate>,
+                "roi_timeline": "<months/years to break even>",
+                "key_assumptions": ["<critical assumptions behind projections>"]
+            }},
+            
+            "opportunities": [
+                "<Specific, actionable opportunities - be concrete, not generic>"
+            ],
+            
+            "risks": [
+                "<Specific risks with realistic assessment>"
+            ],
+            
+            "risk_mitigation_strategies": [
+                {{
+                    "risk": "<specific risk from above>",
+                    "mitigation": "<concrete action to address it>",
+                    "contingency": "<backup plan if mitigation fails>"
+                }}
+            ],
+            
+            "critical_success_factors": [
+                "<What MUST go right for success?>"
+            ],
+            
+            "implementation_roadmap": [
+                {{
+                    "phase": "<Phase name>",
+                    "timeline": "<timeframe>",
+                    "key_activities": ["<specific actions>"],
+                    "milestones": ["<measurable outcomes>"]
+                }}
+            ],
+            
+            "news_analysis": "<Detailed analysis of news headlines with critical insights. Format as numbered points (1. 2. 3.) with bold headers using **Header:** followed by explanation. Focus on: trends, geopolitical implications, competitive intelligence, market timing, actionable insights.>",
+            
+            "news_references": [
+                {{"title": "<news title>", "url": "<url>"}}
+            ],
+            
+            "regulations": "<Summary of environmental/trade regulations>",
+            
+            "sanctions_impact": {{
+                "severity": "<Low/Medium/High>",
+                "specific_restrictions": ["<any known sanctions affecting Iran-{country_name} trade>"],
+                "workarounds": ["<legal strategies to navigate restrictions>"]
+            }},
+            
+            "executive_summary": "<3-4 sentence summary: Is this opportunity worth pursuing? What's the bottom line recommendation?>"
+        }}
+        
+        **CRITICAL INSTRUCTIONS:**
+        - Be REALISTIC and CRITICAL - avoid generic optimism
+        - Use the news data to inform your analysis with specific, current insights
+        - All financial estimates should be grounded in the GDP, population, and market data
+        - Consider Iran's geopolitical position in ALL recommendations
+        - Provide ACTIONABLE insights, not theoretical frameworks
+        - If data is insufficient, state assumptions clearly
+        
+        Return ONLY valid JSON, no additional text.
         """
         
         try:
@@ -83,12 +195,50 @@ class GeminiService:
             logger.error(f"Error analyzing market for {country_name}: {e}")
             return {
                 "score": 0,
+                "dimensional_scores": {
+                    "market_attractiveness": 0,
+                    "entry_feasibility": 0,
+                    "political_risk": 0,
+                    "financial_viability": 0,
+                    "strategic_fit": 0
+                },
                 "reasoning": "Analysis failed.",
+                "competitive_landscape": {
+                    "market_saturation": "Unknown",
+                    "key_players": [],
+                    "competitive_advantage": "Unknown",
+                    "market_gaps": "Unknown"
+                },
+                "market_entry_strategy": {
+                    "recommended_approach": "Unknown",
+                    "rationale": "Analysis failed",
+                    "key_partners": [],
+                    "entry_barriers": [],
+                    "timeline": "Unknown"
+                },
+                "financial_projections": {
+                    "estimated_market_size_usd": 0,
+                    "potential_market_share": "0%",
+                    "estimated_revenue_year1": 0,
+                    "estimated_revenue_year3": 0,
+                    "initial_investment_required": 0,
+                    "roi_timeline": "Unknown",
+                    "key_assumptions": []
+                },
                 "risks": [],
                 "opportunities": [],
+                "risk_mitigation_strategies": [],
+                "critical_success_factors": [],
+                "implementation_roadmap": [],
                 "regulations": "Unknown",
                 "news_analysis": "Analysis failed.",
-                "news_references": []
+                "news_references": [],
+                "sanctions_impact": {
+                    "severity": "Unknown",
+                    "specific_restrictions": [],
+                    "workarounds": []
+                },
+                "executive_summary": "Analysis failed."
             }
 
     def translate_to_persian(self, analysis: dict, country_name: str) -> dict:
@@ -96,26 +246,24 @@ class GeminiService:
         Translates the analysis results to Persian for Iranian users.
         """
         prompt = f"""
-        Translate the following market analysis to Persian (Farsi).
-        Maintain the JSON structure but translate all text content to Persian.
-        Keep the score as a number.
+        Translate the following market analysis JSON to Persian (Farsi).
         
-        Original analysis:
+        CRITICAL RULES:
+        1. Keep all JSON keys in English (e.g., "reasoning", "risks", "market_entry_strategy", "recommended_approach").
+        2. Translate ALL string values to Persian.
+        3. Do NOT translate numbers or boolean values.
+        4. For objects like 'market_entry_strategy', translate the values of its fields (e.g., translate the value of 'recommended_approach' to Persian).
+        5. For lists of strings (like 'risks'), translate each string item to Persian.
+        6. For lists of objects (like 'risk_mitigation_strategies'), translate the string values within each object to Persian.
+        
+        Original Analysis:
         {json.dumps(analysis, ensure_ascii=False, indent=2)}
         
-        Country: {country_name}
-        
-        Return the translated JSON with these fields in Persian:
-        - score: (keep as number)
-        - reasoning: (translate to Persian)
-        - risks: (translate list items to Persian)
-        - opportunities: (translate list items to Persian)
-        - regulations: (translate to Persian)
-        - news_analysis: (translate to Persian)
-        - news_references: (keep title and url, but you can translate titles to Persian if helpful)
+        Target Audience: Iranian business executives. Use professional business terminology.
         
         Ensure the response is valid JSON with proper Persian text encoding.
         """
+
         
         try:
             response = self.model.generate_content(prompt)

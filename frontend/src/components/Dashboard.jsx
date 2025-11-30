@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MapComponent from './Map';
 import { analyzeMarket } from '../services/api';
-import { Search, BarChart2, AlertTriangle, CheckCircle, Newspaper, Globe, ExternalLink } from 'lucide-react';
+import { Search, BarChart2, AlertTriangle, CheckCircle, Newspaper, Globe, ExternalLink, ShieldAlert, TrendingUp, Users, Calendar, DollarSign, Briefcase, Target, Activity, Layers } from 'lucide-react';
 
 const Dashboard = () => {
     const [country, setCountry] = useState('');
@@ -130,6 +130,38 @@ const Dashboard = () => {
                                 </button>
                             </div>
 
+                            {/* Executive Summary */}
+                            {currentAnalysis.executive_summary && (
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 mt-4">
+                                    <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                                        <Activity className="w-4 h-4" /> {language === 'persian' ? 'خلاصه مدیریتی' : 'Executive Summary'}
+                                    </h4>
+                                    <p className="text-sm text-blue-800 leading-relaxed">
+                                        {currentAnalysis.executive_summary}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Sanctions Impact */}
+                            {currentAnalysis.sanctions_impact && (
+                                <div className="bg-red-50 p-4 rounded-lg border border-red-100 mt-4">
+                                    <h4 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
+                                        <ShieldAlert className="w-4 h-4" /> {language === 'persian' ? 'تاثیر تحریم‌ها' : 'Sanctions Impact'}
+                                    </h4>
+                                    <div className="space-y-2 text-sm text-red-800">
+                                        <div className="flex justify-between font-medium">
+                                            <span>{language === 'persian' ? 'شدت:' : 'Severity:'}</span>
+                                            <span className="uppercase">{currentAnalysis.sanctions_impact.severity}</span>
+                                        </div>
+                                        <ul className="list-disc list-inside space-y-1">
+                                            {currentAnalysis.sanctions_impact.specific_restrictions?.map((r, i) => (
+                                                <li key={i}>{r}</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-600">GDP</span>
@@ -145,12 +177,94 @@ const Dashboard = () => {
                                 </div>
                             </div>
 
+                            {/* Dimensional Scores */}
+                            {currentAnalysis.dimensional_scores && (
+                                <div className="space-y-3 py-4 border-t border-b border-gray-100">
+                                    <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                                        <Target className="w-4 h-4" /> {language === 'persian' ? 'امتیازات ابعادی' : 'Dimensional Scores'}
+                                    </h4>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {Object.entries(currentAnalysis.dimensional_scores).map(([key, value]) => (
+                                            <div key={key} className="space-y-1">
+                                                <div className="flex justify-between text-xs text-gray-600 capitalize">
+                                                    <span>{key.replace(/_/g, ' ')}</span>
+                                                    <span>{value}/100</span>
+                                                </div>
+                                                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                    <div 
+                                                        className={`h-full rounded-full ${
+                                                            value >= 70 ? 'bg-green-500' : value >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                                                        }`}
+                                                        style={{ width: `${value}%` }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
                                 <h4 className="font-semibold mb-2 flex items-center gap-2">
                                     <BarChart2 className="w-4 h-4" /> {language === 'persian' ? 'تحلیل' : 'Reasoning'}
                                 </h4>
                                 <p className="text-sm text-gray-600">{currentAnalysis.reasoning}</p>
                             </div>
+
+                            {/* Financial Projections */}
+                            {currentAnalysis.financial_projections && (
+                                <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
+                                    <h4 className="font-semibold mb-3 flex items-center gap-2 text-emerald-700">
+                                        <DollarSign className="w-4 h-4" /> {language === 'persian' ? 'پیش‌بینی‌های مالی' : 'Financial Projections'}
+                                    </h4>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-emerald-50 p-3 rounded-lg">
+                                            <p className="text-xs text-emerald-600 mb-1">{language === 'persian' ? 'درآمد سال اول' : 'Year 1 Revenue'}</p>
+                                            <p className="font-bold text-emerald-900 text-sm">
+                                                ${typeof currentAnalysis.financial_projections.estimated_revenue_year1 === 'number' 
+                                                    ? currentAnalysis.financial_projections.estimated_revenue_year1.toLocaleString() 
+                                                    : currentAnalysis.financial_projections.estimated_revenue_year1}
+                                            </p>
+                                        </div>
+                                        <div className="bg-emerald-50 p-3 rounded-lg">
+                                            <p className="text-xs text-emerald-600 mb-1">{language === 'persian' ? 'بازگشت سرمایه' : 'ROI Timeline'}</p>
+                                            <p className="font-bold text-emerald-900 text-sm">
+                                                {currentAnalysis.financial_projections.roi_timeline}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Market Entry Strategy */}
+                            {currentAnalysis.market_entry_strategy && (
+                                <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
+                                    <h4 className="font-semibold mb-2 flex items-center gap-2 text-purple-700">
+                                        <Briefcase className="w-4 h-4" /> {language === 'persian' ? 'استراتژی ورود به بازار' : 'Market Entry Strategy'}
+                                    </h4>
+                                    <div className="bg-purple-50 p-4 rounded-lg space-y-2">
+                                        <p className="font-medium text-purple-900">
+                                            {currentAnalysis.market_entry_strategy.recommended_approach}
+                                        </p>
+                                        <p className="text-sm text-purple-800">
+                                            {currentAnalysis.market_entry_strategy.rationale}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Competitive Landscape */}
+                            {currentAnalysis.competitive_landscape && (
+                                <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
+                                    <h4 className="font-semibold mb-2 flex items-center gap-2 text-indigo-700">
+                                        <Users className="w-4 h-4" /> {language === 'persian' ? 'چشم‌انداز رقابتی' : 'Competitive Landscape'}
+                                    </h4>
+                                    <div className="text-sm text-gray-600 space-y-2">
+                                        <p><strong>{language === 'persian' ? 'اشباع بازار:' : 'Market Saturation:'}</strong> {currentAnalysis.competitive_landscape.market_saturation}</p>
+                                        <p><strong>{language === 'persian' ? 'مزیت رقابتی:' : 'Competitive Advantage:'}</strong> {currentAnalysis.competitive_landscape.competitive_advantage}</p>
+                                    </div>
+                                </div>
+                            )}
 
                             <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
                                 <h4 className="font-semibold mb-2 flex items-center gap-2 text-green-600">
@@ -173,6 +287,45 @@ const Dashboard = () => {
                                     ))}
                                 </ul>
                             </div>
+
+                            {/* Risk Mitigation */}
+                            {currentAnalysis.risk_mitigation_strategies && currentAnalysis.risk_mitigation_strategies.length > 0 && (
+                                <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
+                                    <h4 className="font-semibold mb-2 flex items-center gap-2 text-orange-700">
+                                        <ShieldAlert className="w-4 h-4" /> {language === 'persian' ? 'استراتژی‌های کاهش ریسک' : 'Risk Mitigation'}
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {currentAnalysis.risk_mitigation_strategies.map((item, i) => (
+                                            <div key={i} className="bg-orange-50 p-3 rounded-lg text-sm">
+                                                <p className="font-medium text-orange-900 mb-1">{item.risk}</p>
+                                                <p className="text-orange-800">→ {item.mitigation}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Implementation Roadmap */}
+                            {currentAnalysis.implementation_roadmap && currentAnalysis.implementation_roadmap.length > 0 && (
+                                <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
+                                    <h4 className="font-semibold mb-2 flex items-center gap-2 text-cyan-700">
+                                        <Calendar className="w-4 h-4" /> {language === 'persian' ? 'نقشه راه اجرا' : 'Implementation Roadmap'}
+                                    </h4>
+                                    <div className="space-y-3 border-l-2 border-cyan-100 ml-2 pl-4">
+                                        {currentAnalysis.implementation_roadmap.map((phase, i) => (
+                                            <div key={i} className="relative">
+                                                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-cyan-500" />
+                                                <p className="font-medium text-gray-900 text-sm">{phase.phase} <span className="text-gray-500 font-normal">({phase.timeline})</span></p>
+                                                <ul className="text-xs text-gray-600 mt-1 list-disc list-inside">
+                                                    {phase.key_activities?.map((act, j) => (
+                                                        <li key={j}>{act}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {currentAnalysis.news_analysis && (
                                 <div className={`border-t pt-4 ${language === 'persian' ? 'rtl' : ''}`}>
@@ -213,7 +366,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Right Column: Map */}
-                <div className="lg:col-span-2 h-[600px] bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div className="lg:col-span-2 h-[450px] bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <MapComponent markers={result && result.data.lat && result.data.lng ? [{ lat: result.data.lat, lng: result.data.lng, country: result.country, score: currentAnalysis.score }] : []} />
                 </div>
             </div>

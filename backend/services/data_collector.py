@@ -72,53 +72,93 @@ class DataCollector:
             "lng": data.get("lng")
         }
 
-    def get_tire_waste_estimate(self, population: int):
+    def get_tire_waste_estimate(self, population: int, gdp: float = None):
         """
-        Estimates tire waste based on population.
-        Rough estimate: 1 tire per person per year in developed, 0.2 in developing.
-        We'll use a conservative 0.3 for now as a baseline for developing nations.
+        Estimates tire waste based on population and GDP.
+        More developed countries (higher GDP per capita) generate more tire waste.
+        
+        Estimates:
+        - High income (GDP per capita > $20,000): 1.0 tire per person per year
+        - Upper middle income ($5,000-$20,000): 0.5 tires per person per year
+        - Lower middle income ($1,500-$5,000): 0.3 tires per person per year
+        - Low income (< $1,500): 0.15 tires per person per year
         """
         if not population:
             return 0
-        return int(population * 0.3)
+        
+        # Default to conservative estimate if no GDP data
+        if not gdp or gdp == 0:
+            return int(population * 0.3)
+        
+        # Calculate GDP per capita
+        gdp_per_capita = gdp / population
+        
+        # Determine tire waste multiplier based on income level
+        if gdp_per_capita > 20000:
+            multiplier = 1.0  # Developed countries
+        elif gdp_per_capita > 5000:
+            multiplier = 0.5  # Upper middle income
+        elif gdp_per_capita > 1500:
+            multiplier = 0.3  # Lower middle income
+        else:
+            multiplier = 0.15  # Low income
+        
+        return int(population * multiplier)
 
     def get_regional_news(self, country_name: str):
         """
-        Fetches news about tire recycling and trade in the specified country using Brave Search API.
+        Fetches comprehensive news about tire recycling, trade, and Iran relations
+        in the specified country using Brave Search API.
         """
         api_key = os.getenv("BRAVE_API_KEY")
         if not api_key:
             logger.warning("BRAVE_API_KEY not found. Skipping news search.")
             return []
 
-        # Construct a query that targets the specific requirements
-        query = f"tire recycling projects news {country_name} Iran export trade"
+        # Multiple search queries for comprehensive coverage
+        queries = [
+            f"tire recycling projects {country_name} Iran export trade",
+            f"{country_name} Iran trade agreement bilateral relations",
+            f"waste management environmental regulations {country_name}",
+            f"tire recycling market {country_name} competitors"
+        ]
+        
         url = "https://api.search.brave.com/res/v1/web/search"
         headers = {
             "X-Subscription-Token": api_key,
             "Accept": "application/json"
         }
-        params = {
-            "q": query,
-            "count": 5,
-            "freshness": "py"  # Past year
-        }
+        
+        all_results = []
+        seen_urls = set()  # Avoid duplicates
+        
+        for query in queries:
+            params = {
+                "q": query,
+                "count": 5,
+                "freshness": "py"  # Past year
+            }
 
-        try:
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            data = response.json()
-            
-            results = []
-            if "web" in data and "results" in data["web"]:
-                for item in data["web"]["results"]:
-                    results.append({
-                        "title": item.get("title"),
-                        "url": item.get("url"),
-                        "description": item.get("description"),
-                        "age": item.get("age")
-                    })
-            return results
-        except Exception as e:
-            logger.error(f"Error fetching news for {country_name}: {e}")
-            return []
+            try:
+                response = requests.get(url, headers=headers, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                if "web" in data and "results" in data["web"]:
+                    for item in data["web"]["results"]:
+                        url_link = item.get("url")
+                        # Avoid duplicates
+                        if url_link not in seen_urls:
+                            seen_urls.add(url_link)
+                            all_results.append({
+                                "title": item.get("title"),
+                                "url": url_link,
+                                "description": item.get("description"),
+                                "age": item.get("age")
+                            })
+            except Exception as e:
+                logger.error(f"Error fetching news for query '{query}': {e}")
+                continue
+        
+        # Return top 15 most relevant results
+        return all_results[:15]
