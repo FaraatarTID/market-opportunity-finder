@@ -16,11 +16,8 @@ class ScoringEngine:
     def score_country(self, country_code: str, country_name: str):
         # 1. Collect Data
         data = self.data_collector.get_country_data(country_code)
-        tire_waste = self.data_collector.get_tire_waste_estimate(
-            data.get("population"), 
-            data.get("gdp")
-        )
-        data["tire_waste"] = tire_waste
+        # 1. Collect Data
+        data = self.data_collector.get_country_data(country_code)
         
         # Collect News
         news = self.data_collector.get_regional_news(country_name)

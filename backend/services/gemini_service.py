@@ -35,110 +35,111 @@ class GeminiService:
         """
         Analyzes market potential using Gemini with advanced analytical frameworks.
         """
+        # Serialize news data safely
+        news_json = json.dumps(data.get('news', []), indent=2, ensure_ascii=False)
+        
         prompt = f"""
-        You are a strategic business analyst specializing in international market entry for tire recycling companies.
-        Conduct a comprehensive, critical analysis of the tire recycling market opportunity in {country_name} for an Iranian company.
+        You are a strategic business analyst specializing in international trade and export strategy for recycled rubber products.
+        Conduct a comprehensive, critical analysis of the opportunity to EXPORT finished recycled tire products (crumb rubber, rubber flooring, fuel, etc.) from Iran to {country_name}.
         
         **CRITICAL CONTEXT:**
-        - The client is an Iranian company seeking to export tire recycling products OR establish recycling projects in {country_name}
-        - Iran faces international sanctions - this MUST be factored into all analysis
-        - Analysis must be realistic, critical, and actionable - not generic or overly optimistic
+        - The client is an Iranian company producing recycled tire products (crumb rubber, tiles, reclaimed rubber).
+        - The goal is to EXPORT these finished goods to {country_name}, NOT to build a recycling plant there.
+        - Iran faces international sanctions - this MUST be factored into logistics, payments, and trade barriers.
+        - Analysis must be realistic, critical, and actionable.
         
         **DATA PROVIDED:**
         - GDP: ${data.get('gdp', 0):,.0f}
         - Population: {data.get('population', 0):,.0f}
-        - Estimated Annual Tire Waste: {data.get('tire_waste', 0):,.0f} units
         
         **RECENT NEWS & MARKET INTELLIGENCE:**
-        {json.dumps(data.get('news', []), indent=2, ensure_ascii=False)}
+        {news_json}
         
         **ANALYTICAL FRAMEWORK - Apply ALL of the following:**
         
-        1. **SWOT ANALYSIS** (Iran-{country_name} tire recycling context):
-           - Strengths: What advantages does this market offer?
-           - Weaknesses: What limitations or challenges exist?
-           - Opportunities: What specific opportunities can be exploited?
-           - Threats: What risks could derail success?
+        1. **SWOT ANALYSIS** (Iranian Export Context):
+           - Strengths: Price competitiveness of Iranian products? Quality?
+           - Weaknesses: Logistics costs, payment difficulties, branding?
+           - Opportunities: Growing construction sector in {country_name}? Automotive demand?
+           - Threats: Tariffs, border closures, competitors (China/Turkey).
         
-        2. **PORTER'S FIVE FORCES** (Competitive Analysis):
-           - Threat of new entrants
-           - Bargaining power of suppliers
-           - Bargaining power of buyers
-           - Threat of substitutes
-           - Competitive rivalry
+        2. **PORTER'S FIVE FORCES** (Export Market):
+           - Threat of new entrants (other exporters)
+           - Bargaining power of suppliers (shipping/logistics providers)
+           - Bargaining power of buyers (importers/distributors in {country_name})
+           - Threat of substitutes (virgin rubber, other materials)
+           - Competitive rivalry (price wars with other exporting nations)
         
         3. **PESTEL ANALYSIS**:
-           - Political: Iran relations, sanctions impact, government stability
-           - Economic: Market size, growth, purchasing power
-           - Social: Environmental awareness, waste management culture
-           - Technological: Infrastructure, recycling technology adoption
-           - Environmental: Regulations, tire waste problem severity
-           - Legal: Trade laws, compliance requirements
+           - Political: Trade agreements with Iran, sanctions enforcement.
+           - Economic: Currency exchange rates, purchasing power, construction boom.
+           - Social: Acceptance of Iranian products.
+           - Technological: Logistics infrastructure.
+           - Environmental: Standards for imported recycled materials.
+           - Legal: Import tariffs, customs regulations, compliance.
         
         4. **NEWS ANALYSIS - Critical Interpretation**:
-           - Identify trends and patterns from the news
-           - Assess geopolitical implications for Iran-{country_name} trade
-           - Identify competitors or market players mentioned
-           - Determine market timing (is now the right time?)
-           - Extract actionable intelligence
+           - Identify specific demand signals (infrastructure projects, automotive growth).
+           - Assess trade sentiment towards Iran.
+           - Identify potential partners or competitors mentioned.
         
         **REQUIRED OUTPUT (JSON format):**
         {{
-            "score": <0-100 overall attractiveness>,
+            "score": <0-100 overall export attractiveness>,
             
             "dimensional_scores": {{
-                "market_attractiveness": <0-100: market size, growth, demand>,
-                "entry_feasibility": <0-100: ease of entry, barriers, regulations>,
+                "market_demand": <0-100: demand for finished rubber products>,
+                "trade_ease": <0-100: tariffs, customs, logistics>,
                 "political_risk": <0-100: higher = lower risk, sanctions, stability>,
-                "financial_viability": <0-100: ROI potential, profitability>,
-                "strategic_fit": <0-100: alignment with Iranian capabilities>
+                "financial_viability": <0-100: profit margin potential>,
+                "strategic_fit": <0-100: alignment with Iranian export capabilities>
             }},
             
             "reasoning": "<2-3 sentences explaining the overall score and key factors>",
             
             "competitive_landscape": {{
                 "market_saturation": "<Low/Medium/High>",
-                "key_players": ["<list existing competitors if identified from news>"],
-                "competitive_advantage": "<What unique advantage can Iranian company bring?>",
-                "market_gaps": "<Underserved segments or opportunities>"
+                "key_players": ["<list major competitors/exporters to this market>"],
+                "competitive_advantage": "<How can Iranian products compete? (Price/Quality/Proximity)>",
+                "market_gaps": "<Underserved segments (e.g., low-cost flooring)>"
             }},
             
             "market_entry_strategy": {{
-                "recommended_approach": "<Direct Export / Joint Venture / Licensing / Greenfield Investment / etc.>",
-                "rationale": "<Why this approach is best>",
-                "key_partners": ["<Types of local partners to seek>"],
-                "entry_barriers": ["<Specific barriers to overcome>"],
-                "timeline": "<Estimated time to market entry>"
+                "recommended_approach": "<Direct Export / Local Distributor / Agent / Joint Venture>",
+                "rationale": "<Why this approach is best for this specific market>",
+                "key_partners": ["<Types of partners: e.g., Construction firms, Wholesalers>"],
+                "entry_barriers": ["<Tariffs, Certifications, Sanctions>"],
+                "timeline": "<Time to first shipment>"
             }},
             
             "financial_projections": {{
-                "estimated_market_size_usd": <annual market size estimate>,
-                "potential_market_share": "<realistic % achievable in 3-5 years>",
+                "estimated_market_size_usd": <annual import market size estimate>,
+                "potential_market_share": "<realistic % achievable>",
                 "estimated_revenue_year1": <USD>,
                 "estimated_revenue_year3": <USD>,
-                "initial_investment_required": <USD estimate>,
-                "roi_timeline": "<months/years to break even>",
-                "key_assumptions": ["<critical assumptions behind projections>"]
+                "initial_investment_required": <USD (marketing, certifications, logistics setup)>,
+                "roi_timeline": "<months to break even on initial setup>",
+                "key_assumptions": ["<critical assumptions>"]
             }},
             
             "opportunities": [
-                "<Specific, actionable opportunities - be concrete, not generic>"
+                "<Specific export opportunities - e.g., 'Supply rubber tiles for new stadium project'>"
             ],
             
             "risks": [
-                "<Specific risks with realistic assessment>"
+                "<Specific export risks - e.g., 'Border closure due to security'>"
             ],
             
             "risk_mitigation_strategies": [
                 {{
-                    "risk": "<specific risk from above>",
-                    "mitigation": "<concrete action to address it>",
-                    "contingency": "<backup plan if mitigation fails>"
+                    "risk": "<specific risk>",
+                    "mitigation": "<action>",
+                    "contingency": "<backup>"
                 }}
             ],
             
             "critical_success_factors": [
-                "<What MUST go right for success?>"
+                "<What MUST go right? e.g., 'Securing reliable payment channel'>"
             ],
             
             "implementation_roadmap": [
@@ -150,30 +151,27 @@ class GeminiService:
                 }}
             ],
             
-            "news_analysis": "<Detailed analysis of news headlines with critical insights. Format as numbered points (1. 2. 3.) with bold headers using **Header:** followed by explanation. Focus on: trends, geopolitical implications, competitive intelligence, market timing, actionable insights.>",
+            "news_analysis": "<Detailed analysis of news. Format as numbered points (1. 2. 3.) with bold headers using **Header:** followed by explanation.>",
             
             "news_references": [
                 {{"title": "<news title>", "url": "<url>"}}
             ],
             
-            "regulations": "<Summary of environmental/trade regulations>",
+            "regulations": "<Summary of import duties and standards>",
             
             "sanctions_impact": {{
                 "severity": "<Low/Medium/High>",
-                "specific_restrictions": ["<any known sanctions affecting Iran-{country_name} trade>"],
-                "workarounds": ["<legal strategies to navigate restrictions>"]
+                "specific_restrictions": ["<banking/shipping restrictions>"],
+                "workarounds": ["<legal payment methods, third-party logistics>"]
             }},
             
-            "executive_summary": "<3-4 sentence summary: Is this opportunity worth pursuing? What's the bottom line recommendation?>"
+            "executive_summary": "<3-4 sentence summary: Should we export to this country?>"
         }}
         
         **CRITICAL INSTRUCTIONS:**
-        - Be REALISTIC and CRITICAL - avoid generic optimism
-        - Use the news data to inform your analysis with specific, current insights
-        - All financial estimates should be grounded in the GDP, population, and market data
-        - Consider Iran's geopolitical position in ALL recommendations
-        - Provide ACTIONABLE insights, not theoretical frameworks
-        - If data is insufficient, state assumptions clearly
+        - Focus ONLY on EXPORT of finished goods.
+        - Do NOT suggest building a factory.
+        - Be realistic about Sanctions and Banking issues.
         
         Return ONLY valid JSON, no additional text.
         """
@@ -245,6 +243,9 @@ class GeminiService:
         """
         Translates the analysis results to Persian for Iranian users.
         """
+        # Serialize analysis to JSON string first
+        analysis_json = json.dumps(analysis, ensure_ascii=False, indent=2)
+        
         prompt = f"""
         Translate the following market analysis JSON to Persian (Farsi).
         
@@ -257,7 +258,7 @@ class GeminiService:
         6. For lists of objects (like 'risk_mitigation_strategies'), translate the string values within each object to Persian.
         
         Original Analysis:
-        {json.dumps(analysis, ensure_ascii=False, indent=2)}
+        {analysis_json}
         
         Target Audience: Iranian business executives. Use professional business terminology.
         

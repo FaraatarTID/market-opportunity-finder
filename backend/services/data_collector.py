@@ -72,42 +72,9 @@ class DataCollector:
             "lng": data.get("lng")
         }
 
-    def get_tire_waste_estimate(self, population: int, gdp: float = None):
-        """
-        Estimates tire waste based on population and GDP.
-        More developed countries (higher GDP per capita) generate more tire waste.
-        
-        Estimates:
-        - High income (GDP per capita > $20,000): 1.0 tire per person per year
-        - Upper middle income ($5,000-$20,000): 0.5 tires per person per year
-        - Lower middle income ($1,500-$5,000): 0.3 tires per person per year
-        - Low income (< $1,500): 0.15 tires per person per year
-        """
-        if not population:
-            return 0
-        
-        # Default to conservative estimate if no GDP data
-        if not gdp or gdp == 0:
-            return int(population * 0.3)
-        
-        # Calculate GDP per capita
-        gdp_per_capita = gdp / population
-        
-        # Determine tire waste multiplier based on income level
-        if gdp_per_capita > 20000:
-            multiplier = 1.0  # Developed countries
-        elif gdp_per_capita > 5000:
-            multiplier = 0.5  # Upper middle income
-        elif gdp_per_capita > 1500:
-            multiplier = 0.3  # Lower middle income
-        else:
-            multiplier = 0.15  # Low income
-        
-        return int(population * multiplier)
-
     def get_regional_news(self, country_name: str):
         """
-        Fetches comprehensive news about tire recycling, trade, and Iran relations
+        Fetches comprehensive news about tire recycling products demand, trade, and Iran relations
         in the specified country using Brave Search API.
         """
         api_key = os.getenv("BRAVE_API_KEY")
@@ -115,12 +82,13 @@ class DataCollector:
             logger.warning("BRAVE_API_KEY not found. Skipping news search.")
             return []
 
-        # Multiple search queries for comprehensive coverage
+        # Multiple search queries for comprehensive coverage of EXPORT potential
         queries = [
-            f"tire recycling projects {country_name} Iran export trade",
-            f"{country_name} Iran trade agreement bilateral relations",
-            f"waste management environmental regulations {country_name}",
-            f"tire recycling market {country_name} competitors"
+            f"import of rubber products {country_name} from Iran",
+            f"demand for crumb rubber {country_name} construction",
+            f"automotive industry trends {country_name} rubber parts",
+            f"infrastructure projects {country_name} asphalt rubber",
+            f"{country_name} Iran trade agreement industrial goods"
         ]
         
         url = "https://api.search.brave.com/res/v1/web/search"

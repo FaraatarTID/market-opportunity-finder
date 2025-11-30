@@ -68,7 +68,7 @@ const Dashboard = () => {
                 <p className="text-gray-600">Identify and score tire recycling opportunities.</p>
             </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column: Input and Results */}
                 <div className="lg:col-span-1 space-y-6">
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
@@ -81,6 +81,7 @@ const Dashboard = () => {
                                 type="text"
                                 value={country}
                                 onChange={(e) => setCountry(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleAnalyze()}
                                 placeholder="Enter country name..."
                                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                             />
@@ -171,10 +172,7 @@ const Dashboard = () => {
                                     <span className="text-gray-600">Population</span>
                                     <span className="font-medium">{(result.data.population / 1e6).toFixed(1)}M</span>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Est. Tire Waste</span>
-                                    <span className="font-medium">{result.data.tire_waste.toLocaleString()} units</span>
-                                </div>
+
                             </div>
 
                             {/* Dimensional Scores */}
@@ -366,7 +364,7 @@ const Dashboard = () => {
                 </div>
 
                 {/* Right Column: Map */}
-                <div className="lg:col-span-2 h-[450px] bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <div className="h-[600px] bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                     <MapComponent markers={result && result.data.lat && result.data.lng ? [{ lat: result.data.lat, lng: result.data.lng, country: result.country, score: currentAnalysis.score }] : []} />
                 </div>
             </div>
