@@ -1,0 +1,11 @@
+streamlit
+fastapi
+uvicorn
+requests
+google-generativeai
+python-dotenv
+pycountry
+pytest
+httpx
+beautifulsoup4
+pandas
