@@ -365,11 +365,13 @@ if submit:
         report_payload["report_delta"] = report_delta
 
     report_html = build_html_report(report_payload)
+    enable_pdf = st.checkbox("Enable PDF export (may fail on Unicode)", value=False)
     report_pdf = None
-    try:
-        report_pdf = build_pdf_report(report_payload)
-    except Exception:
-        st.warning("PDF generation failed (likely due to Unicode text). HTML report is still available.")
+    if enable_pdf:
+        try:
+            report_pdf = build_pdf_report(report_payload)
+        except Exception:
+            st.warning("PDF generation failed (likely due to Unicode text). HTML report is still available.")
     st.download_button(
         label="Download HTML Report",
         data=report_html,
@@ -417,17 +419,17 @@ if submit:
         st.caption("Quality labels: official (government/international), media, or unknown.")
         if result["evidence"]:
             relevance_values = [
-                item.get("relevance_score", 0)
+                item.get("relevance_score")
                 for item in result["evidence"]
-                if isinstance(item.get("relevance_score"), (int, float))
+                if isinstance(item.get("relevance_score"), (int, float)) and item.get("relevance_score") > 0
             ]
             if relevance_values:
                 st.subheader("Relevance Histogram")
                 st.caption("Higher values indicate stronger keyword match to your subject.")
                 st.bar_chart(pd.Series(relevance_values))
-            evidence_df = pd.DataFrame(result["evidence"])
-            if "summary" in evidence_df.columns:
-                evidence_df["summary"] = evidence_df["summary"].astype(str)
+            else:
+                st.caption("Relevance histogram not available (no positive relevance scores yet).")
+            evidence_df = pd.DataFrame(result["evidence"]).astype(str)
             st.dataframe(evidence_df, width="stretch", hide_index=True)
         else:
             st.info("No evidence collected. Check API keys or adjust queries.")
@@ -435,42 +437,46 @@ if submit:
     with col2:
         st.subheader("Resolved Target")
         resolved = result.get("resolved", {})
-        st.dataframe(_dict_to_rows(resolved), width="stretch", hide_index=True)
+        resolved_rows = [{"key": key, "value": str(value)} for key, value in resolved.items()]
+        st.dataframe(resolved_rows, width="stretch", hide_index=True)
 
         st.subheader("Macro Data")
         macro = result.get("macro", {})
-        st.dataframe(_dict_to_rows(macro), width="stretch", hide_index=True)
+        macro_rows = [{"key": key, "value": str(value)} for key, value in macro.items()]
+        st.dataframe(macro_rows, width="stretch", hide_index=True)
 
         st.subheader("Trade Signals")
         trade = result.get("trade_signals", {})
         trade_rows = []
         for key, payload in trade.items():
-            trade_rows.append({"indicator": key, "label": payload.get("label"), "value": payload.get("value")})
+            trade_rows.append({"indicator": key, "label": payload.get("label"), "value": str(payload.get("value"))})
         st.dataframe(trade_rows, width="stretch", hide_index=True)
 
         st.subheader("Policy Signals")
         policy = result.get("policy_signals", {})
         policy_rows = []
         for key, payload in policy.items():
-            policy_rows.append({"indicator": key, "label": payload.get("label"), "value": payload.get("value")})
+            policy_rows.append({"indicator": key, "label": payload.get("label"), "value": str(payload.get("value"))})
         st.dataframe(policy_rows, width="stretch", hide_index=True)
 
         st.subheader("Confidence Breakdown")
         conf_breakdown = result["scores"].get("confidence_breakdown", {})
-        st.dataframe(_dict_to_rows(conf_breakdown), width="stretch", hide_index=True)
+        conf_breakdown_rows = [{"key": key, "value": str(value)} for key, value in conf_breakdown.items()]
+        st.dataframe(conf_breakdown_rows, width="stretch", hide_index=True)
 
         st.subheader("Confidence Sources")
         conf_sources = result["scores"].get("confidence_sources", {})
-        st.dataframe(_dict_to_rows(conf_sources), width="stretch", hide_index=True)
+        conf_sources_rows = [{"key": key, "value": str(value)} for key, value in conf_sources.items()]
+        st.dataframe(conf_sources_rows, width="stretch", hide_index=True)
 
         st.subheader("Query Plan")
-        st.dataframe([{"query": q} for q in result.get("query_plan", [])], width="stretch", hide_index=True)
+        st.dataframe([{"query": str(q)} for q in result.get("query_plan", [])], width="stretch", hide_index=True)
 
         st.subheader("Tender Filters")
-        st.dataframe([{"filter": f} for f in result.get("tender_filters", [])], width="stretch", hide_index=True)
+        st.dataframe([{"filter": str(f)} for f in result.get("tender_filters", [])], width="stretch", hide_index=True)
 
         st.subheader("Data Sources")
-        st.dataframe([{"source": s} for s in result.get("data_sources", [])], width="stretch", hide_index=True)
+        st.dataframe([{"source": str(s)} for s in result.get("data_sources", [])], width="stretch", hide_index=True)
 
 st.markdown("---")
 st.subheader("Comparison View")
