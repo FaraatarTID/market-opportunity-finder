@@ -1,6 +1,7 @@
 from typing import Any, Dict, List
 
 from fpdf import FPDF
+from fpdf.errors import FPDFUnicodeEncodingException
 
 
 def build_pdf_report(result: Dict[str, Any]) -> bytes:
@@ -15,41 +16,41 @@ def build_pdf_report(result: Dict[str, Any]) -> bytes:
 
     _section(pdf, "Executive Summary")
     summary = _build_summary(result)
-    pdf.multi_cell(width, 6, _safe_text(summary))
+    _safe_multi_cell(pdf, width, 6, summary)
 
     _section(pdf, "Scores")
     scores = result.get("scores", {})
     pdf.cell(0, 6, f"Overall score: {scores.get('overall_score')}", ln=True)
     pdf.cell(0, 6, f"Confidence: {scores.get('confidence')}", ln=True)
-    pdf.multi_cell(width, 6, _safe_text(scores.get("rationale", "")))
+    _safe_multi_cell(pdf, width, 6, scores.get("rationale", ""))
 
     _section(pdf, "Key Takeaways")
     for item in _takeaways(result):
         text = f"- {item}".strip()
         if text:
-            pdf.multi_cell(width, 6, _safe_text(text))
+            _safe_multi_cell(pdf, width, 6, text)
 
     delta = result.get("report_delta")
     if delta:
         _section(pdf, "Change vs Previous Run")
         for key, value in delta.items():
-            pdf.multi_cell(width, 6, _safe_text(f"{key.replace('_', ' ').title()}: {value}"))
+            _safe_multi_cell(pdf, width, 6, f"{key.replace('_', ' ').title()}: {value}")
 
     _section(pdf, "Evidence Pack (Top 10)")
     evidence = result.get("evidence", [])[:10]
     if not evidence:
-        pdf.multi_cell(width, 6, "No evidence collected.")
+        _safe_multi_cell(pdf, width, 6, "No evidence collected.")
     for item in evidence:
         title = item.get("title", "")
         url = item.get("url", "")
         quality = item.get("quality", "")
         relevance = item.get("relevance_score", "")
         pdf.set_font("Helvetica", "B", 11)
-        pdf.multi_cell(width, 6, _safe_text(title))
+        _safe_multi_cell(pdf, width, 6, title)
         pdf.set_font("Helvetica", "", 10)
         if url:
-            pdf.multi_cell(width, 6, _safe_text(url))
-        pdf.multi_cell(width, 6, _safe_text(f"Quality: {quality} | Relevance: {relevance}"))
+            _safe_multi_cell(pdf, width, 6, url)
+        _safe_multi_cell(pdf, width, 6, f"Quality: {quality} | Relevance: {relevance}")
 
     return pdf.output(dest="S").encode("latin-1")
 
@@ -114,3 +115,11 @@ def _safe_text(text: str) -> str:
     safe = safe.replace("_", "_ ")
     safe = safe.replace("-", "- ")
     return safe
+
+
+def _safe_multi_cell(pdf: FPDF, width: float, height: float, text: str) -> None:
+    try:
+        pdf.multi_cell(width, height, _safe_text(text))
+    except FPDFUnicodeEncodingException:
+        fallback = str(text).encode("ascii", "ignore").decode("ascii")
+        pdf.multi_cell(width, height, fallback)
