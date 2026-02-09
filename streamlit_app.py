@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 
 import pandas as pd
@@ -63,6 +63,10 @@ def _save_run_history(history: List[Dict[str, str]]) -> None:
 
 def _parse_csv_list(value: str) -> List[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _dict_to_rows(data: Dict[str, object]) -> List[Dict[str, object]]:
+    return [{"key": key, "value": value} for key, value in data.items()]
 
 
 
@@ -382,7 +386,7 @@ if submit:
 
     st.session_state["run_history"].append(
         {
-            "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
             "target": result["subject"].get("target_name"),
             "type": result["subject"].get("target_type"),
             "overall_score": result["scores"].get("overall_score"),
@@ -405,7 +409,7 @@ if submit:
                 {"dimension": key.replace("_", " ").title(), "score": value}
                 for key, value in result["scores"]["dimensional_scores"].items()
             ],
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
         )
 
@@ -421,44 +425,59 @@ if submit:
                 st.subheader("Relevance Histogram")
                 st.caption("Higher values indicate stronger keyword match to your subject.")
                 st.bar_chart(pd.Series(relevance_values))
-            st.dataframe(result["evidence"], use_container_width=True, hide_index=True)
+            evidence_df = pd.DataFrame(result["evidence"])
+            if "summary" in evidence_df.columns:
+                evidence_df["summary"] = evidence_df["summary"].astype(str)
+            st.dataframe(evidence_df, width="stretch", hide_index=True)
         else:
             st.info("No evidence collected. Check API keys or adjust queries.")
 
     with col2:
         st.subheader("Resolved Target")
-        st.json(result.get("resolved", {}))
+        resolved = result.get("resolved", {})
+        st.dataframe(_dict_to_rows(resolved), width="stretch", hide_index=True)
 
         st.subheader("Macro Data")
-        st.json(result.get("macro", {}))
+        macro = result.get("macro", {})
+        st.dataframe(_dict_to_rows(macro), width="stretch", hide_index=True)
 
         st.subheader("Trade Signals")
-        st.json(result.get("trade_signals", {}))
+        trade = result.get("trade_signals", {})
+        trade_rows = []
+        for key, payload in trade.items():
+            trade_rows.append({"indicator": key, "label": payload.get("label"), "value": payload.get("value")})
+        st.dataframe(trade_rows, width="stretch", hide_index=True)
 
         st.subheader("Policy Signals")
-        st.json(result.get("policy_signals", {}))
+        policy = result.get("policy_signals", {})
+        policy_rows = []
+        for key, payload in policy.items():
+            policy_rows.append({"indicator": key, "label": payload.get("label"), "value": payload.get("value")})
+        st.dataframe(policy_rows, width="stretch", hide_index=True)
 
         st.subheader("Confidence Breakdown")
-        st.json(result["scores"].get("confidence_breakdown", {}))
+        conf_breakdown = result["scores"].get("confidence_breakdown", {})
+        st.dataframe(_dict_to_rows(conf_breakdown), width="stretch", hide_index=True)
 
         st.subheader("Confidence Sources")
-        st.json(result["scores"].get("confidence_sources", {}))
+        conf_sources = result["scores"].get("confidence_sources", {})
+        st.dataframe(_dict_to_rows(conf_sources), width="stretch", hide_index=True)
 
         st.subheader("Query Plan")
-        st.write(result.get("query_plan", []))
+        st.dataframe([{"query": q} for q in result.get("query_plan", [])], width="stretch", hide_index=True)
 
         st.subheader("Tender Filters")
-        st.write(result.get("tender_filters", []))
+        st.dataframe([{"filter": f} for f in result.get("tender_filters", [])], width="stretch", hide_index=True)
 
         st.subheader("Data Sources")
-        st.write(result.get("data_sources", []))
+        st.dataframe([{"source": s} for s in result.get("data_sources", [])], width="stretch", hide_index=True)
 
 st.markdown("---")
 st.subheader("Comparison View")
 st.caption("Compare multiple analyses side-by-side. Add items using the button above.")
 if st.session_state["comparisons"]:
     df = pd.DataFrame(st.session_state["comparisons"])
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
     st.download_button(
         label="Download Comparison CSV",
         data=df.to_csv(index=False),
@@ -489,7 +508,7 @@ if uploaded_history:
         st.error("Failed to parse uploaded JSON.")
 if st.session_state["run_history"]:
     history_df = pd.DataFrame(st.session_state["run_history"])
-    st.dataframe(history_df, use_container_width=True, hide_index=True)
+    st.dataframe(history_df, width="stretch", hide_index=True)
     st.download_button(
         label="Download Run History JSON",
         data=json.dumps(st.session_state["run_history"], ensure_ascii=False, indent=2),
