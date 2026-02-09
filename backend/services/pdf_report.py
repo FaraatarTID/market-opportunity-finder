@@ -11,42 +11,45 @@ def build_pdf_report(result: Dict[str, Any]) -> bytes:
     pdf.cell(0, 10, "Market Opportunity OSINT Report", ln=True)
     pdf.set_font("Helvetica", "", 11)
     pdf.cell(0, 6, "Generated from open-source intelligence.", ln=True)
+    width = _epw(pdf)
 
     _section(pdf, "Executive Summary")
     summary = _build_summary(result)
-    pdf.multi_cell(0, 6, summary)
+    pdf.multi_cell(width, 6, _safe_text(summary))
 
     _section(pdf, "Scores")
     scores = result.get("scores", {})
     pdf.cell(0, 6, f"Overall score: {scores.get('overall_score')}", ln=True)
     pdf.cell(0, 6, f"Confidence: {scores.get('confidence')}", ln=True)
-    pdf.multi_cell(0, 6, scores.get("rationale", ""))
+    pdf.multi_cell(width, 6, _safe_text(scores.get("rationale", "")))
 
     _section(pdf, "Key Takeaways")
     for item in _takeaways(result):
-        pdf.multi_cell(0, 6, f"- {item}")
+        text = f"- {item}".strip()
+        if text:
+            pdf.multi_cell(width, 6, _safe_text(text))
 
     delta = result.get("report_delta")
     if delta:
         _section(pdf, "Change vs Previous Run")
         for key, value in delta.items():
-            pdf.multi_cell(0, 6, f"{key.replace('_', ' ').title()}: {value}")
+            pdf.multi_cell(width, 6, _safe_text(f"{key.replace('_', ' ').title()}: {value}"))
 
     _section(pdf, "Evidence Pack (Top 10)")
     evidence = result.get("evidence", [])[:10]
     if not evidence:
-        pdf.multi_cell(0, 6, "No evidence collected.")
+        pdf.multi_cell(width, 6, "No evidence collected.")
     for item in evidence:
         title = item.get("title", "")
         url = item.get("url", "")
         quality = item.get("quality", "")
         relevance = item.get("relevance_score", "")
         pdf.set_font("Helvetica", "B", 11)
-        pdf.multi_cell(0, 6, title)
+        pdf.multi_cell(width, 6, _safe_text(title))
         pdf.set_font("Helvetica", "", 10)
         if url:
-            pdf.multi_cell(0, 6, url)
-        pdf.multi_cell(0, 6, f"Quality: {quality} | Relevance: {relevance}")
+            pdf.multi_cell(width, 6, _safe_text(url))
+        pdf.multi_cell(width, 6, _safe_text(f"Quality: {quality} | Relevance: {relevance}"))
 
     return pdf.output(dest="S").encode("latin-1")
 
@@ -91,3 +94,21 @@ def _takeaways(result: Dict[str, Any]) -> List[str]:
     if len(evidence) == 0:
         takeaways.append("No evidence collected; verify API keys and sources.")
     return takeaways
+
+
+def _epw(pdf: FPDF) -> float:
+    try:
+        return pdf.epw
+    except Exception:
+        return pdf.w - pdf.l_margin - pdf.r_margin
+
+
+def _safe_text(text: str) -> str:
+    if text is None:
+        return ""
+    # Allow line breaks but insert breakpoints into long tokens (URLs/IDs).
+    safe = str(text)
+    safe = safe.replace("/", "/ ")
+    safe = safe.replace("_", "_ ")
+    safe = safe.replace("-", "- ")
+    return safe
