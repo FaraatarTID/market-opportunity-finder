@@ -19,7 +19,7 @@ def score_subject(
     trade_signals: Dict[str, Any],
     config: ScoringConfig,
 ) -> Dict[str, Any]:
-    if isinstance(config, dict):
+    if not isinstance(config, ScoringConfig):
         config = ScoringConfig(**config)
     gdp = macro.get("gdp") or 0
     population = macro.get("population") or 0

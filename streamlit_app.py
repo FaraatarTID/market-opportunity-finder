@@ -100,10 +100,10 @@ if "run_history" not in st.session_state:
 
 with st.sidebar:
     st.subheader("Subject Definition")
-    if st.button("Quick Start: Turkey (Rubber Exports)"):
+    if st.button("Quick Start: Turkiye (Rubber Exports)"):
         st.session_state["quick_start"] = {
             "target_type": "country",
-            "target_name": "Turkey",
+            "target_name": "Turkiye",
             "region": "Middle East",
             "products": "crumb rubber, rubber tiles",
             "signals": "import growth, construction projects, tenders",
@@ -126,7 +126,7 @@ with st.sidebar:
     )
     target_name = st.text_input(
         "Target name",
-        placeholder="e.g., Turkey",
+        placeholder="e.g., Turkiye",
         help="Required.",
         value=quick.get("target_name", ""),
     )
