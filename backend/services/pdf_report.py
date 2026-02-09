@@ -108,6 +108,8 @@ def _safe_text(text: str) -> str:
         return ""
     # Allow line breaks but insert breakpoints into long tokens (URLs/IDs).
     safe = str(text)
+    # Strip non-latin-1 characters to avoid FPDFUnicodeEncodingException.
+    safe = safe.encode("latin-1", "ignore").decode("latin-1")
     safe = safe.replace("/", "/ ")
     safe = safe.replace("_", "_ ")
     safe = safe.replace("-", "- ")
