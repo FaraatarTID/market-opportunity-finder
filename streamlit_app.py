@@ -1,256 +1,514 @@
-import streamlit as st
-import sys
+import json
 import os
+import sys
+from datetime import datetime
+from typing import Dict, List
+
 import pandas as pd
-import pycountry
+
+import streamlit as st
 from dotenv import load_dotenv
 
-# Add backend to path so we can import services
-sys.path.append(os.path.join(os.path.dirname(__file__), 'backend'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
 
-from services.scoring_engine import ScoringEngine
-from exceptions import GeminiConfigurationError
+from models.subject import Subject
+from services.osint_pipeline import analyze_subject, SubjectResolutionError
+from services.report import build_html_report
+from services.pdf_report import build_pdf_report
 
-# Load environment variables
 load_dotenv()
 
-# Page Config
 st.set_page_config(
-    page_title="Market Opportunity Finder",
-    page_icon="🌍",
+    page_title="Market Opportunity OSINT",
+    page_icon="M",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded",
 )
 
-# Custom CSS for styling
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f9fafb;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #2563eb;
-        color: white;
-        border-radius: 0.5rem;
-    }
-    .stButton>button:hover {
-        background-color: #1d4ed8;
-        color: white;
-    }
-    .metric-card {
-        background-color: white;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    }
-    .score-card {
-        text-align: center;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        font-weight: bold;
-        font-size: 1.5rem;
-    }
-    .score-green { background-color: #dcfce7; color: #15803d; }
-    .score-yellow { background-color: #fef9c3; color: #a16207; }
-    .score-red { background-color: #fee2e2; color: #b91c1c; }
-    </style>
-""", unsafe_allow_html=True)
+PRESET_PATH = os.path.join(os.path.dirname(__file__), "backend", ".cache", "weight_presets.json")
+RUN_HISTORY_PATH = os.path.join(os.path.dirname(__file__), "backend", ".cache", "run_history.json")
 
-# Header
-st.title("🌍 Market Opportunity Finder")
-st.markdown("Identify and score tire recycling opportunities.")
 
-# Sidebar for inputs
+def _load_presets() -> Dict[str, Dict[str, float]]:
+    if not os.path.exists(PRESET_PATH):
+        return {}
+    try:
+        with open(PRESET_PATH, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception:
+        return {}
+
+
+def _save_presets(presets: Dict[str, Dict[str, float]]) -> None:
+    os.makedirs(os.path.dirname(PRESET_PATH), exist_ok=True)
+    with open(PRESET_PATH, "w", encoding="utf-8") as handle:
+        json.dump(presets, handle, ensure_ascii=False, indent=2)
+
+
+def _load_run_history() -> List[Dict[str, str]]:
+    if not os.path.exists(RUN_HISTORY_PATH):
+        return []
+    try:
+        with open(RUN_HISTORY_PATH, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except Exception:
+        return []
+
+
+def _save_run_history(history: List[Dict[str, str]]) -> None:
+    os.makedirs(os.path.dirname(RUN_HISTORY_PATH), exist_ok=True)
+    with open(RUN_HISTORY_PATH, "w", encoding="utf-8") as handle:
+        json.dump(history, handle, ensure_ascii=False, indent=2)
+
+def _parse_csv_list(value: str) -> List[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def suggest_hs_codes(product_text: str) -> List[str]:
+    config_path = os.path.join(os.path.dirname(__file__), "backend", "config", "hs_codes.json")
+    if not os.path.exists(config_path):
+        return []
+    try:
+        with open(config_path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        categories = payload.get("categories", {})
+        product_text = product_text.lower()
+        suggestions = []
+        for key, codes in categories.items():
+            if key.replace("_", " ") in product_text or key in product_text:
+                suggestions.extend(codes)
+        return suggestions
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def run_analysis(subject_payload: dict, scoring_payload: dict):
+    subject = Subject(**subject_payload)
+    return analyze_subject(subject, scoring_config=scoring_payload)
+
+
+st.title("Market Opportunity OSINT")
+st.caption("Evidence-first research for export market screening using open sources.")
+st.markdown(
+    """
+This tool helps analysts quickly screen export markets using public data and OSINT.  
+Fill the **Subject Definition** on the left, run the analysis, and review the evidence-backed score.
+"""
+)
+
+with st.expander("How to interpret the score", expanded=False):
+    st.markdown(
+        """
+- **Overall score**: weighted composite of the dimensions you set in the sidebar.  
+- **Confidence**: data availability + evidence mix (news, trade, policy, tenders).  
+- **Evidence Pack**: raw sources used to justify the score. Always review before decisions.
+"""
+    )
+
+if "comparisons" not in st.session_state:
+    st.session_state["comparisons"] = []
+if "last_result" not in st.session_state:
+    st.session_state["last_result"] = None
+if "run_history" not in st.session_state:
+    st.session_state["run_history"] = _load_run_history()
+
 with st.sidebar:
-    st.header("Configuration")
-    st.info("This tool analyzes market opportunities for tire recycling businesses.")
+    st.subheader("Subject Definition")
+    if st.button("Quick Start: Turkey (Rubber Exports)"):
+        st.session_state["quick_start"] = {
+            "target_type": "country",
+            "target_name": "Turkey",
+            "region": "Middle East",
+            "products": "crumb rubber, rubber tiles",
+            "signals": "import growth, construction projects, tenders",
+            "risks": "sanctions, customs delays, currency controls",
+            "hs_codes": "4004, 4016",
+            "languages": "en,tr",
+            "tender_feeds": "",
+        }
+        st.success("Quick Start applied. Review inputs and run analysis.")
+    quick = st.session_state.get("quick_start", {})
+    target_type_options = ["country", "sector", "product", "company", "supply_chain"]
+    target_type_index = 0
+    if quick.get("target_type") in target_type_options:
+        target_type_index = target_type_options.index(quick.get("target_type"))
+    target_type = st.selectbox(
+        "Target type",
+        target_type_options,
+        index=target_type_index,
+        help="Country targets are fully supported. Others return limited data for now.",
+    )
+    target_name = st.text_input(
+        "Target name",
+        placeholder="e.g., Turkey",
+        help="Required.",
+        value=quick.get("target_name", ""),
+    )
 
-# Main Input Area
-col1, col2 = st.columns([2, 1])
+    with st.expander("Core Inputs", expanded=True):
+        region = st.text_input(
+            "Region (optional)",
+            placeholder="e.g., Middle East",
+            value=quick.get("region", ""),
+        )
+        products = st.text_area(
+            "Products (comma-separated)",
+            placeholder="crumb rubber, rubber tiles",
+            help="Used to build targeted search queries.",
+            value=quick.get("products", ""),
+        )
+        signals = st.text_area(
+            "Signals of interest (comma-separated)",
+            placeholder="import growth, construction projects, tenders",
+            help="Keywords prioritized in OSINT searches.",
+            value=quick.get("signals", ""),
+        )
+        risks = st.text_area(
+            "Risk focus (comma-separated)",
+            placeholder="sanctions, customs delays, currency controls",
+            help="Risk-related signals to emphasize.",
+            value=quick.get("risks", ""),
+        )
+        time_horizon = st.slider(
+            "Time horizon (months)",
+            min_value=1,
+            max_value=36,
+            value=12,
+            help="Used for OSINT freshness targets where supported.",
+        )
 
-with col1:
-    country_input = st.text_input("Enter country name...", placeholder="e.g., Turkey, Armenia, Iraq")
+    beginner_mode = st.toggle("Beginner mode", value=True, help="Hides advanced inputs unless disabled.")
 
-with col2:
-    # Add some spacing to align button with input
-    st.write("") 
-    st.write("")
-    analyze_btn = st.button("Analyze Market")
+    if not beginner_mode:
+        with st.expander("Advanced Inputs", expanded=True):
+            st.caption("Tip: You can auto-suggest HS codes from product keywords.")
+            hs_codes = st.text_input(
+                "HS codes (comma-separated)",
+                placeholder="4004, 4016",
+                help="Optional: used to generate HS-code specific queries.",
+                value=quick.get("hs_codes", ""),
+            )
+            if st.button("Suggest HS codes"):
+                suggested = suggest_hs_codes(products)
+                if suggested:
+                    hs_codes = ", ".join(sorted(set(suggested)))
+                    st.session_state["suggested_hs_codes"] = hs_codes
+                    st.success(f"Suggested HS codes: {hs_codes}")
+                else:
+                    st.info("No HS code suggestions found.")
+            languages = st.text_input(
+                "Languages (comma-separated)",
+                help="Used for query generation (multilingual support is limited).",
+                value=quick.get("languages", "en"),
+            )
+            tender_feeds = st.text_area(
+                "Tender RSS/Atom feeds (comma-separated URLs)",
+                placeholder="https://example.com/tenders/rss",
+                help="Optional: add official tender feeds to include in evidence.",
+                value=quick.get("tender_feeds", ""),
+            )
+    else:
+        hs_codes = ""
+        languages = "en"
+        tender_feeds = ""
+    st.subheader("Scoring Weights")
+    presets = _load_presets()
+    preset_names = ["Default"] + sorted(presets.keys())
+    selected_preset = st.selectbox("Preset", preset_names, index=0)
 
-# Initialize session state for results
-if 'analysis_result' not in st.session_state:
-    st.session_state.analysis_result = None
-if 'error_message' not in st.session_state:
-    st.session_state.error_message = None
+    if "weights" not in st.session_state:
+        st.session_state["weights"] = {
+            "market_demand": 0.35,
+            "trade_ease": 0.2,
+            "political_risk": 0.2,
+            "financial_viability": 0.15,
+            "strategic_fit": 0.1,
+        }
 
-# Analysis Logic
-if analyze_btn and country_input:
-    with st.spinner(f"Analyzing market opportunities in {country_input}..."):
+    if selected_preset != "Default" and selected_preset in presets:
+        st.session_state["weights"] = presets[selected_preset]
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        w_market = st.number_input(
+            "Market demand",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state["weights"]["market_demand"]),
+            step=0.05,
+        )
+        w_trade = st.number_input(
+            "Trade ease",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state["weights"]["trade_ease"]),
+            step=0.05,
+        )
+        w_risk = st.number_input(
+            "Political risk",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state["weights"]["political_risk"]),
+            step=0.05,
+        )
+    with col_b:
+        w_fin = st.number_input(
+            "Financial viability",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state["weights"]["financial_viability"]),
+            step=0.05,
+        )
+        w_fit = st.number_input(
+            "Strategic fit",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(st.session_state["weights"]["strategic_fit"]),
+            step=0.05,
+        )
+
+    st.session_state["weights"] = {
+        "market_demand": w_market,
+        "trade_ease": w_trade,
+        "political_risk": w_risk,
+        "financial_viability": w_fin,
+        "strategic_fit": w_fit,
+    }
+
+    st.caption("Weights are normalized automatically during scoring.")
+    preset_name = st.text_input("Save preset as", value="")
+    if st.button("Save preset") and preset_name.strip():
+        presets[preset_name.strip()] = st.session_state["weights"]
+        _save_presets(presets)
+        st.success("Preset saved.")
+
+    submit = st.button("Run OSINT Analysis")
+
+if submit:
+    if not target_name.strip():
+        st.error("Target name is required.")
+        st.stop()
+
+    subject_payload = {
+        "target_type": target_type,
+        "target_name": target_name.strip(),
+        "region": region.strip() or None,
+        "products": _parse_csv_list(products),
+        "hs_codes": _parse_csv_list(hs_codes),
+        "signals_of_interest": _parse_csv_list(signals),
+        "risk_focus": _parse_csv_list(risks),
+        "time_horizon_months": time_horizon,
+        "languages": _parse_csv_list(languages) or ["en"],
+        "tender_feeds": _parse_csv_list(tender_feeds),
+    }
+
+    scoring_payload = {
+        "weights": {
+            "market_demand": w_market,
+            "trade_ease": w_trade,
+            "political_risk": w_risk,
+            "financial_viability": w_fin,
+            "strategic_fit": w_fit,
+        }
+    }
+
+    with st.spinner("Running OSINT pipeline..."):
         try:
-            # 1. Resolve Country
-            try:
-                country = pycountry.countries.search_fuzzy(country_input)[0]
-                country_code = country.alpha_2
-                country_name = country.name
-            except LookupError:
-                st.error(f"Country '{country_input}' not found.")
-                st.stop()
-            except Exception as e:
-                st.error(f"Error validating country: {str(e)}")
-                st.stop()
+            result = run_analysis(subject_payload, scoring_payload)
+        except SubjectResolutionError as exc:
+            st.error(str(exc))
+            st.stop()
+        except Exception as exc:
+            st.error(f"Unexpected error: {exc}")
+            st.stop()
 
-            # 2. Run Scoring Engine
-            scoring_engine = ScoringEngine()
-            result = scoring_engine.score_country(country_code, country_name)
-            
-            st.session_state.analysis_result = result
-            st.session_state.error_message = None
-            
-        except GeminiConfigurationError as e:
-            st.session_state.error_message = f"Configuration Error: {str(e)}"
-        except Exception as e:
-            st.session_state.error_message = f"An unexpected error occurred: {str(e)}"
+    st.subheader("Overall Score")
+    st.metric("OSINT Market Score", result["scores"]["overall_score"])
+    st.caption(result["scores"]["rationale"])
+    st.metric("Confidence", result["scores"]["confidence"])
 
-# Display Error if any
-if st.session_state.error_message:
-    st.error(st.session_state.error_message)
+    if result["scores"].get("confidence_sources", {}).get("official", 0) == 0:
+        st.warning("No official sources detected. Validate with primary data before decisions.")
 
-# Display Results
-if st.session_state.analysis_result:
-    result = st.session_state.analysis_result
-    
-    # Language Toggle
-    lang_col1, lang_col2 = st.columns([1, 5])
-    with lang_col1:
-        language = st.radio("Language", ["English", "Persian"], horizontal=True)
-    
-    is_persian = language == "Persian"
-    current_analysis = result['analysis_persian'] if is_persian else result['analysis']
-    
-    # Top Section: Title and Score
+    if result.get("warnings"):
+        st.warning(" | ".join(result["warnings"]))
+
+    if st.button("Add to comparison list"):
+        comparison_row = {
+            "target": result["subject"].get("target_name"),
+            "type": result["subject"].get("target_type"),
+            "overall_score": result["scores"].get("overall_score"),
+            "confidence": result["scores"].get("confidence"),
+            "market_demand": result["scores"]["dimensional_scores"].get("market_demand"),
+            "trade_ease": result["scores"]["dimensional_scores"].get("trade_ease"),
+            "signal_strength": result["scores"]["dimensional_scores"].get("signal_strength"),
+            "evidence_count": len(result.get("evidence", [])),
+            "gdp": result.get("macro", {}).get("gdp"),
+            "population": result.get("macro", {}).get("population"),
+        }
+        st.session_state["comparisons"].append(comparison_row)
+        st.success("Added to comparison list.")
+
+    report_delta = None
+    if st.button("Compare with previous run"):
+        previous = st.session_state.get("last_result")
+        if previous:
+            delta = {
+                "overall_score": result["scores"].get("overall_score", 0) - previous["scores"].get("overall_score", 0),
+                "confidence": result["scores"].get("confidence", 0) - previous["scores"].get("confidence", 0),
+                "evidence_count": len(result.get("evidence", [])) - len(previous.get("evidence", [])),
+                "official_sources": result["scores"]
+                .get("confidence_sources", {})
+                .get("official", 0)
+                - previous["scores"].get("confidence_sources", {}).get("official", 0),
+            }
+            st.info("Comparison against last run")
+            st.json(delta)
+            report_delta = delta
+        else:
+            st.info("No previous run available yet.")
+
+    report_payload = dict(result)
+    if report_delta:
+        report_payload["report_delta"] = report_delta
+
+    report_html = build_html_report(report_payload)
+    report_pdf = build_pdf_report(report_payload)
+    st.download_button(
+        label="Download HTML Report",
+        data=report_html,
+        file_name="osint_report.html",
+        mime="text/html",
+    )
+    st.download_button(
+        label="Download PDF Brief",
+        data=report_pdf,
+        file_name="osint_report.pdf",
+        mime="application/pdf",
+    )
+
+    st.session_state["run_history"].append(
+        {
+            "timestamp": datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            "target": result["subject"].get("target_name"),
+            "type": result["subject"].get("target_type"),
+            "overall_score": result["scores"].get("overall_score"),
+            "confidence": result["scores"].get("confidence"),
+            "official_sources": result["scores"].get("confidence_sources", {}).get("official", 0),
+            "evidence_count": len(result.get("evidence", [])),
+        }
+    )
+    _save_run_history(st.session_state["run_history"])
+
+    st.session_state["last_result"] = result
+
     st.markdown("---")
-    header_col1, header_col2 = st.columns([3, 1])
-    
-    with header_col1:
-        st.subheader(f"Analysis for {result['country']}")
-    
-    with header_col2:
-        score = current_analysis.get('score', 0)
-        score_class = "score-green" if score >= 70 else "score-yellow" if score >= 40 else "score-red"
-        st.markdown(f"""
-            <div class="score-card {score_class}">
-                {score}/100
-            </div>
-        """, unsafe_allow_html=True)
+    col1, col2 = st.columns([2, 1])
 
-    # Executive Summary
-    if current_analysis.get('executive_summary'):
-        st.info(f"**{'خلاصه مدیریتی' if is_persian else 'Executive Summary'}**: {current_analysis['executive_summary']}")
+    with col1:
+        st.subheader("Dimensional Scores")
+        st.dataframe(
+            [
+                {"dimension": key.replace("_", " ").title(), "score": value}
+                for key, value in result["scores"]["dimensional_scores"].items()
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
 
-    # Sanctions Impact (if any)
-    if current_analysis.get('sanctions_impact'):
-        sanctions = current_analysis['sanctions_impact']
-        with st.expander(f"{'تاثیر تحریم‌ها' if is_persian else 'Sanctions Impact'}", expanded=True):
-            st.error(f"**{'شدت' if is_persian else 'Severity'}:** {sanctions.get('severity', 'Unknown')}")
-            for restriction in sanctions.get('specific_restrictions', []):
-                st.markdown(f"- {restriction}")
+        st.subheader("Evidence Pack")
+        st.caption("Quality labels: official (government/international), media, or unknown.")
+        if result["evidence"]:
+            relevance_values = [
+                item.get("relevance_score", 0)
+                for item in result["evidence"]
+                if isinstance(item.get("relevance_score"), (int, float))
+            ]
+            if relevance_values:
+                st.subheader("Relevance Histogram")
+                st.caption("Higher values indicate stronger keyword match to your subject.")
+                st.bar_chart(pd.Series(relevance_values))
+            st.dataframe(result["evidence"], use_container_width=True, hide_index=True)
+        else:
+            st.info("No evidence collected. Check API keys or adjust queries.")
 
-    # Key Metrics (GDP, Pop) & Dimensional Scores
-    col_metrics, col_scores = st.columns([1, 1])
-    
-    with col_metrics:
-        st.markdown(f"### {'داده‌های کلیدی' if is_persian else 'Key Data'}")
-        gdp_val = result['data'].get('gdp', 0)
-        pop_val = result['data'].get('population', 0)
-        
-        m1, m2 = st.columns(2)
-        m1.metric("GDP", f"${gdp_val/1e9:.2f}B")
-        m2.metric("Population", f"{pop_val/1e6:.1f}M")
-        
-        # Map
-        if result['data'].get('lat') and result['data'].get('lng'):
-            map_data = pd.DataFrame({
-                'lat': [result['data']['lat']],
-                'lon': [result['data']['lng']]
-            })
-            st.map(map_data, zoom=4)
+    with col2:
+        st.subheader("Resolved Target")
+        st.json(result.get("resolved", {}))
 
-    with col_scores:
-        st.markdown(f"### {'امتیازات ابعادی' if is_persian else 'Dimensional Scores'}")
-        scores = current_analysis.get('dimensional_scores', {})
-        for key, value in scores.items():
-            st.text(f"{key.replace('_', ' ').title()}")
-            st.progress(value / 100)
+        st.subheader("Macro Data")
+        st.json(result.get("macro", {}))
 
-    # Detailed Sections
-    st.markdown("---")
-    
-    # Financials & Entry Strategy
-    row1_1, row1_2 = st.columns(2)
-    
-    with row1_1:
-        st.markdown(f"### 💰 {'پیش‌بینی‌های مالی' if is_persian else 'Financial Projections'}")
-        fin = current_analysis.get('financial_projections', {})
-        st.success(f"**{'درآمد سال اول' if is_persian else 'Year 1 Revenue'}:** ${fin.get('estimated_revenue_year1', 0):,}")
-        st.info(f"**{'بازگشت سرمایه' if is_persian else 'ROI Timeline'}:** {fin.get('roi_timeline', 'N/A')}")
+        st.subheader("Trade Signals")
+        st.json(result.get("trade_signals", {}))
 
-    with row1_2:
-        st.markdown(f"### 🚀 {'استراتژی ورود' if is_persian else 'Entry Strategy'}")
-        entry = current_analysis.get('market_entry_strategy', {})
-        st.markdown(f"**{'رویکرد' if is_persian else 'Approach'}:** {entry.get('recommended_approach', 'N/A')}")
-        st.caption(entry.get('rationale', ''))
+        st.subheader("Policy Signals")
+        st.json(result.get("policy_signals", {}))
 
-    # Reasoning, Opportunities, Risks
-    st.markdown("### 📊 {'تحلیل دقیق' if is_persian else 'Detailed Analysis'}")
-    
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Reasoning" if not is_persian else "تحلیل",
-        "Opportunities" if not is_persian else "فرصت‌ها",
-        "Risks" if not is_persian else "ریسک‌ها",
-        "News" if not is_persian else "اخبار"
-    ])
-    
-    with tab1:
-        st.write(current_analysis.get('reasoning', ''))
-        
-        # Competitive Landscape
-        if current_analysis.get('competitive_landscape'):
-            st.markdown("#### Competitive Landscape")
-            comp = current_analysis['competitive_landscape']
-            st.markdown(f"**Saturation:** {comp.get('market_saturation')}")
-            st.markdown(f"**Advantage:** {comp.get('competitive_advantage')}")
+        st.subheader("Confidence Breakdown")
+        st.json(result["scores"].get("confidence_breakdown", {}))
 
-    with tab2:
-        for opp in current_analysis.get('opportunities', []):
-            st.markdown(f"✅ {opp}")
+        st.subheader("Confidence Sources")
+        st.json(result["scores"].get("confidence_sources", {}))
 
-    with tab3:
-        for risk in current_analysis.get('risks', []):
-            st.markdown(f"⚠️ {risk}")
-        
-        if current_analysis.get('risk_mitigation_strategies'):
-            st.markdown("#### Mitigation Strategies")
-            for strat in current_analysis['risk_mitigation_strategies']:
-                st.markdown(f"**{strat.get('risk')}**: {strat.get('mitigation')}")
+        st.subheader("Query Plan")
+        st.write(result.get("query_plan", []))
 
-    with tab4:
-        news_text = current_analysis.get('news_analysis', '')
-        if news_text:
-            st.markdown(news_text)
-        
-        refs = current_analysis.get('news_references', [])
-        if refs:
-            st.markdown("#### References")
-            for ref in refs:
-                st.markdown(f"- [{ref.get('title')}]({ref.get('url')})")
+        st.subheader("Tender Filters")
+        st.write(result.get("tender_filters", []))
 
-    # Roadmap
-    if current_analysis.get('implementation_roadmap'):
-        st.markdown(f"### 📅 {'نقشه راه' if is_persian else 'Implementation Roadmap'}")
-        for phase in current_analysis['implementation_roadmap']:
-            with st.expander(f"{phase.get('phase')} ({phase.get('timeline')})"):
-                for activity in phase.get('key_activities', []):
-                    st.markdown(f"- {activity}")
+        st.subheader("Data Sources")
+        st.write(result.get("data_sources", []))
 
+st.markdown("---")
+st.subheader("Comparison View")
+st.caption("Compare multiple analyses side-by-side. Add items using the button above.")
+if st.session_state["comparisons"]:
+    df = pd.DataFrame(st.session_state["comparisons"])
+    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.download_button(
+        label="Download Comparison CSV",
+        data=df.to_csv(index=False),
+        file_name="osint_comparison.csv",
+        mime="text/csv",
+    )
+    if st.button("Clear comparison list"):
+        st.session_state["comparisons"] = []
+        st.info("Comparison list cleared.")
+else:
+    st.info("No comparisons yet. Run an analysis and click 'Add to comparison list'.")
+
+st.markdown("---")
+st.subheader("Run History")
+st.caption("Note: Cloud deployments may reset local storage on redeploy.")
+st.caption("Tip: Export run history for long-term storage and re-import when needed.")
+uploaded_history = st.file_uploader("Import run history (JSON)", type=["json"])
+if uploaded_history:
+    try:
+        imported = json.load(uploaded_history)
+        if isinstance(imported, list):
+            st.session_state["run_history"] = imported
+            _save_run_history(imported)
+            st.success("Run history imported.")
+        else:
+            st.error("Invalid history format. Expected a list of records.")
+    except Exception:
+        st.error("Failed to parse uploaded JSON.")
+if st.session_state["run_history"]:
+    history_df = pd.DataFrame(st.session_state["run_history"])
+    st.dataframe(history_df, use_container_width=True, hide_index=True)
+    st.download_button(
+        label="Download Run History JSON",
+        data=json.dumps(st.session_state["run_history"], ensure_ascii=False, indent=2),
+        file_name="osint_run_history.json",
+        mime="application/json",
+    )
+    st.download_button(
+        label="Download Run History CSV",
+        data=history_df.to_csv(index=False),
+        file_name="osint_run_history.csv",
+        mime="text/csv",
+    )
+else:
+    st.info("No runs yet.")

@@ -1,12 +1,19 @@
-import requests
 import logging
 import os
+from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
+from services.cache import SimpleFileCache
+from services.http_client import HttpClient
+
+
 class DataCollector:
     def __init__(self):
-        self.wb_base_url = "http://api.worldbank.org/v2"
+        self.wb_base_url = "https://api.worldbank.org/v2"
+        self.http = HttpClient(timeout_seconds=10)
+        cache_path = os.path.join(os.path.dirname(__file__), "..", ".cache", "osint_cache.json")
+        self.cache = SimpleFileCache(os.path.normpath(cache_path), default_ttl_seconds=86400)
 
     def get_country_data(self, country_code: str):
         """
@@ -21,9 +28,12 @@ class DataCollector:
         # Fetch basic country info for lat/lng
         try:
             info_url = f"{self.wb_base_url}/country/{country_code}?format=json"
-            resp = requests.get(info_url)
-            resp.raise_for_status()
-            info_res = resp.json()
+            cached = self.cache.get(f"wb:country:{country_code}")
+            if cached:
+                info_res = cached
+            else:
+                info_res = self.http.get_json(info_url)
+                self.cache.set(f"wb:country:{country_code}", info_res, ttl_seconds=86400)
             if len(info_res) > 1 and info_res[1]:
                 country_info = info_res[1][0]
                 data["lat"] = float(country_info.get("latitude", 0))
@@ -38,10 +48,7 @@ class DataCollector:
 
         for indicator in indicators:
             try:
-                url = f"{self.wb_base_url}/country/{country_code}/indicator/{indicator}?format=json&per_page=1"
-                response = requests.get(url)
-                response.raise_for_status()
-                result = response.json()
+                result = self.get_indicator_series(country_code, indicator)
                 
                 if len(result) > 1 and result[1]:
                     # For GDP and Population, the value is in result[1][0]['value']
@@ -72,7 +79,17 @@ class DataCollector:
             "lng": data.get("lng")
         }
 
-    def get_regional_news(self, country_name: str):
+    def get_indicator_series(self, country_code: str, indicator: str):
+        url = f"{self.wb_base_url}/country/{country_code}/indicator/{indicator}?format=json&per_page=1"
+        cache_key = f"wb:indicator:{country_code}:{indicator}"
+        cached = self.cache.get(cache_key)
+        if cached:
+            return cached
+        result = self.http.get_json(url)
+        self.cache.set(cache_key, result, ttl_seconds=86400)
+        return result
+
+    def get_regional_news(self, country_name: str, queries: Optional[List[str]] = None):
         """
         Fetches comprehensive news about tire recycling products demand, trade, and Iran relations
         in the specified country using Brave Search API.
@@ -83,13 +100,14 @@ class DataCollector:
             return []
 
         # Multiple search queries for comprehensive coverage of EXPORT potential
-        queries = [
-            f"import of rubber products {country_name} from Iran",
-            f"demand for crumb rubber {country_name} construction",
-            f"automotive industry trends {country_name} rubber parts",
-            f"infrastructure projects {country_name} asphalt rubber",
-            f"{country_name} Iran trade agreement industrial goods"
-        ]
+        if not queries:
+            queries = [
+                f"import of rubber products {country_name} from Iran",
+                f"demand for crumb rubber {country_name} construction",
+                f"automotive industry trends {country_name} rubber parts",
+                f"infrastructure projects {country_name} asphalt rubber",
+                f"{country_name} Iran trade agreement industrial goods",
+            ]
         
         url = "https://api.search.brave.com/res/v1/web/search"
         headers = {
@@ -108,9 +126,13 @@ class DataCollector:
             }
 
             try:
-                response = requests.get(url, headers=headers, params=params)
-                response.raise_for_status()
-                data = response.json()
+                cache_key = f"brave:{query}"
+                cached = self.cache.get(cache_key)
+                if cached:
+                    data = cached
+                else:
+                    data = self.http.get_json(url, headers=headers, params=params)
+                    self.cache.set(cache_key, data, ttl_seconds=3600)
                 
                 if "web" in data and "results" in data["web"]:
                     for item in data["web"]["results"]:

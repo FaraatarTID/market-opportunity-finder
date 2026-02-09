@@ -9,3 +9,4 @@ pytest
 httpx
 beautifulsoup4
 pandas
+fpdf2

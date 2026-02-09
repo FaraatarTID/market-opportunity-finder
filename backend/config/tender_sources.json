@@ -1,0 +1,9 @@
+{
+  "sources": [
+    {
+      "name": "Example RSS",
+      "type": "rss",
+      "url": "https://example.com/tenders/rss"
+    }
+  ]
+}
