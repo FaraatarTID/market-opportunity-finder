@@ -187,12 +187,14 @@ with st.sidebar:
                 help="Used for query generation (multilingual support is limited).",
                 value=quick.get("languages", "en"),
             )
-            tender_feeds = st.text_area(
-                "Tender RSS/Atom feeds (comma-separated URLs)",
-                placeholder="https://example.com/tenders/rss",
-                help="Optional: add official tender feeds to include in evidence.",
-                value=quick.get("tender_feeds", ""),
-            )
+        tender_feeds = st.text_area(
+            "Tender RSS/Atom feeds (comma-separated URLs)",
+            placeholder="https://example.com/tenders/rss",
+            help="Optional: add official tender feeds to include in evidence.",
+            value=quick.get("tender_feeds", ""),
+        )
+        if not tender_feeds.strip():
+            st.info("No tender feeds configured. Add RSS/Atom links to include tender evidence.")
     else:
         hs_codes = ""
         languages = "en"

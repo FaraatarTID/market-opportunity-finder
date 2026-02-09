@@ -31,13 +31,15 @@ def _resolve_country(target_name: str) -> Dict[str, str]:
         raise SubjectResolutionError(f"Country '{target_name}' not found.") from exc
 
 
-def analyze_subject(subject: Subject, scoring_config: ScoringConfig | None = None) -> Dict[str, Any]:
+def analyze_subject(subject: Subject, scoring_config: ScoringConfig | dict | None = None) -> Dict[str, Any]:
     collector = DataCollector()
     resolved = {}
     macro = {}
     trade_signals = {}
     policy_signals = {}
     warnings = []
+    if isinstance(scoring_config, dict):
+        scoring_config = ScoringConfig(**scoring_config)
     scoring_config = scoring_config or ScoringConfig()
 
     if subject.target_type == "country":
