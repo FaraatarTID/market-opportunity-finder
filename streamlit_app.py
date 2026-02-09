@@ -361,19 +361,24 @@ if submit:
         report_payload["report_delta"] = report_delta
 
     report_html = build_html_report(report_payload)
-    report_pdf = build_pdf_report(report_payload)
+    report_pdf = None
+    try:
+        report_pdf = build_pdf_report(report_payload)
+    except Exception:
+        st.warning("PDF generation failed (likely due to Unicode text). HTML report is still available.")
     st.download_button(
         label="Download HTML Report",
         data=report_html,
         file_name="osint_report.html",
         mime="text/html",
     )
-    st.download_button(
-        label="Download PDF Brief",
-        data=report_pdf,
-        file_name="osint_report.pdf",
-        mime="application/pdf",
-    )
+    if report_pdf:
+        st.download_button(
+            label="Download PDF Brief",
+            data=report_pdf,
+            file_name="osint_report.pdf",
+            mime="application/pdf",
+        )
 
     st.session_state["run_history"].append(
         {

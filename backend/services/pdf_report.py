@@ -5,6 +5,13 @@ from fpdf.errors import FPDFUnicodeEncodingException
 
 
 def build_pdf_report(result: Dict[str, Any]) -> bytes:
+    try:
+        return _build_pdf_report(result)
+    except FPDFUnicodeEncodingException:
+        return _build_pdf_report(result, force_ascii=True)
+
+
+def _build_pdf_report(result: Dict[str, Any], force_ascii: bool = False) -> bytes:
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=12)
     pdf.add_page()
@@ -16,41 +23,41 @@ def build_pdf_report(result: Dict[str, Any]) -> bytes:
 
     _section(pdf, "Executive Summary")
     summary = _build_summary(result)
-    _safe_multi_cell(pdf, width, 6, summary)
+    _safe_multi_cell(pdf, width, 6, summary, force_ascii=force_ascii)
 
     _section(pdf, "Scores")
     scores = result.get("scores", {})
     pdf.cell(0, 6, f"Overall score: {scores.get('overall_score')}", ln=True)
     pdf.cell(0, 6, f"Confidence: {scores.get('confidence')}", ln=True)
-    _safe_multi_cell(pdf, width, 6, scores.get("rationale", ""))
+    _safe_multi_cell(pdf, width, 6, scores.get("rationale", ""), force_ascii=force_ascii)
 
     _section(pdf, "Key Takeaways")
     for item in _takeaways(result):
         text = f"- {item}".strip()
         if text:
-            _safe_multi_cell(pdf, width, 6, text)
+            _safe_multi_cell(pdf, width, 6, text, force_ascii=force_ascii)
 
     delta = result.get("report_delta")
     if delta:
         _section(pdf, "Change vs Previous Run")
         for key, value in delta.items():
-            _safe_multi_cell(pdf, width, 6, f"{key.replace('_', ' ').title()}: {value}")
+            _safe_multi_cell(pdf, width, 6, f"{key.replace('_', ' ').title()}: {value}", force_ascii=force_ascii)
 
     _section(pdf, "Evidence Pack (Top 10)")
     evidence = result.get("evidence", [])[:10]
     if not evidence:
-        _safe_multi_cell(pdf, width, 6, "No evidence collected.")
+        _safe_multi_cell(pdf, width, 6, "No evidence collected.", force_ascii=force_ascii)
     for item in evidence:
         title = item.get("title", "")
         url = item.get("url", "")
         quality = item.get("quality", "")
         relevance = item.get("relevance_score", "")
         pdf.set_font("Helvetica", "B", 11)
-        _safe_multi_cell(pdf, width, 6, title)
+        _safe_multi_cell(pdf, width, 6, title, force_ascii=force_ascii)
         pdf.set_font("Helvetica", "", 10)
         if url:
-            _safe_multi_cell(pdf, width, 6, url)
-        _safe_multi_cell(pdf, width, 6, f"Quality: {quality} | Relevance: {relevance}")
+            _safe_multi_cell(pdf, width, 6, url, force_ascii=force_ascii)
+        _safe_multi_cell(pdf, width, 6, f"Quality: {quality} | Relevance: {relevance}", force_ascii=force_ascii)
 
     return pdf.output(dest="S").encode("latin-1")
 
@@ -104,22 +111,27 @@ def _epw(pdf: FPDF) -> float:
         return pdf.w - pdf.l_margin - pdf.r_margin
 
 
-def _safe_text(text: str) -> str:
+def _safe_text(text: str, force_ascii: bool = False) -> str:
     if text is None:
         return ""
     # Allow line breaks but insert breakpoints into long tokens (URLs/IDs).
     safe = str(text)
+    # Normalize common punctuation
+    safe = safe.replace("’", "'").replace("“", "\"").replace("”", "\"")
     # Strip non-latin-1 characters to avoid FPDFUnicodeEncodingException.
-    safe = safe.encode("latin-1", "ignore").decode("latin-1")
+    if force_ascii:
+        safe = safe.encode("ascii", "ignore").decode("ascii")
+    else:
+        safe = safe.encode("latin-1", "ignore").decode("latin-1")
     safe = safe.replace("/", "/ ")
     safe = safe.replace("_", "_ ")
     safe = safe.replace("-", "- ")
     return safe
 
 
-def _safe_multi_cell(pdf: FPDF, width: float, height: float, text: str) -> None:
+def _safe_multi_cell(pdf: FPDF, width: float, height: float, text: str, force_ascii: bool = False) -> None:
     try:
-        pdf.multi_cell(width, height, _safe_text(text))
+        pdf.multi_cell(width, height, _safe_text(text, force_ascii=force_ascii))
     except FPDFUnicodeEncodingException:
         fallback = str(text).encode("ascii", "ignore").decode("ascii")
         pdf.multi_cell(width, height, fallback)
