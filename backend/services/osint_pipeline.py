@@ -69,13 +69,13 @@ def analyze_subject(subject: Subject, scoring_config: ScoringConfig | None = Non
     scores = score_subject(subject, macro, evidence, trade_signals, scoring_config)
 
     return {
-        "subject": subject.dict(),
+        "subject": subject.model_dump(),
         "resolved": resolved,
         "macro": macro,
         "trade_signals": trade_signals,
         "policy_signals": policy_signals,
         "scores": scores,
-        "scoring_config": scoring_config.dict(),
+        "scoring_config": scoring_config.model_dump(),
         "evidence": evidence,
         "query_plan": queries,
         "tender_filters": tender_keywords,

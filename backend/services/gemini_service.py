@@ -3,6 +3,7 @@ import os
 import json
 import logging
 
+from models.analysis import AnalysisModel
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +189,9 @@ class GeminiService:
             elif "```" in text:
                 text = text.split("```")[1].split("```")[0]
                 
-            return json.loads(text)
+            parsed = json.loads(text)
+            validated = AnalysisModel.model_validate(parsed)
+            return validated.model_dump()
         except Exception as e:
             logger.error(f"Error analyzing market for {country_name}: {e}")
             return {

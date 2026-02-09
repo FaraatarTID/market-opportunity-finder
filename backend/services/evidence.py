@@ -91,7 +91,8 @@ def dedupe_evidence(evidence: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for item in evidence:
         url = item.get("url") or ""
         title = (item.get("title") or "").strip().lower()
-        summary = (item.get("summary") or "").strip().lower()
+        summary_value = item.get("summary") or ""
+        summary = str(summary_value).strip().lower()
         domain = ""
         if url:
             parsed = urlparse(url)

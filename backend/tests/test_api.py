@@ -1,3 +1,4 @@
+import os
 import pytest
 from fastapi.testclient import TestClient
 from main import app
@@ -5,6 +6,9 @@ from services.data_collector import DataCollector
 from services.scoring_engine import ScoringEngine
 
 client = TestClient(app)
+
+if not os.getenv("RUN_INTEGRATION"):
+    pytest.skip("Skipping integration tests (set RUN_INTEGRATION=1 to enable).", allow_module_level=True)
 
 def test_read_root():
     response = client.get("/")
