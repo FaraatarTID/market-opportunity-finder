@@ -14,8 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "backend"))
 from models.subject import Subject
 from services.osint_pipeline import analyze_subject, SubjectResolutionError
 from services.hs_utils import suggest_hs_codes
-from services.report import build_html_report
-from services.pdf_report import build_pdf_report
+from services.report import build_html_report, build_score_narrative
 
 load_dotenv()
 
@@ -101,6 +100,8 @@ if "last_result" not in st.session_state:
     st.session_state["last_result"] = None
 if "run_history" not in st.session_state:
     st.session_state["run_history"] = _load_run_history()
+if "analysis_result" not in st.session_state:
+    st.session_state["analysis_result"] = None
 
 with st.sidebar:
     st.subheader("Subject Definition")
@@ -306,13 +307,16 @@ if submit:
 
     with st.spinner("Running OSINT pipeline..."):
         try:
-            result = run_analysis(subject_payload, scoring_payload)
+            st.session_state["analysis_result"] = run_analysis(subject_payload, scoring_payload)
         except SubjectResolutionError as exc:
             st.error(str(exc))
             st.stop()
         except Exception as exc:
             st.error(f"Unexpected error: {exc}")
             st.stop()
+
+if st.session_state["analysis_result"]:
+    result = st.session_state["analysis_result"]
 
     st.subheader("Overall Score")
     st.metric("OSINT Market Score", result["scores"]["overall_score"])
@@ -364,27 +368,25 @@ if submit:
     if report_delta:
         report_payload["report_delta"] = report_delta
 
+    narrative = build_score_narrative(result)
+    st.subheader("Analyst Narrative")
+    st.write(narrative["summary"])
+    st.markdown("**Why this score**")
+    st.markdown("\n".join(f"- {item}" for item in narrative["justification"]))
+    if narrative["key_evidence"]:
+        st.markdown("**Key evidence highlights**")
+        st.markdown("\n".join(f"- {item}" for item in narrative["key_evidence"]))
+    if narrative["gaps"]:
+        st.markdown("**Gaps to validate**")
+        st.markdown("\n".join(f"- {item}" for item in narrative["gaps"]))
+
     report_html = build_html_report(report_payload)
-    enable_pdf = st.checkbox("Enable PDF export (may fail on Unicode)", value=False)
-    report_pdf = None
-    if enable_pdf:
-        try:
-            report_pdf = build_pdf_report(report_payload)
-        except Exception:
-            st.warning("PDF generation failed (likely due to Unicode text). HTML report is still available.")
     st.download_button(
         label="Download HTML Report",
         data=report_html,
         file_name="osint_report.html",
         mime="text/html",
     )
-    if report_pdf:
-        st.download_button(
-            label="Download PDF Brief",
-            data=report_pdf,
-            file_name="osint_report.pdf",
-            mime="application/pdf",
-        )
 
     st.session_state["run_history"].append(
         {
@@ -421,14 +423,16 @@ if submit:
             relevance_values = [
                 item.get("relevance_score")
                 for item in result["evidence"]
-                if isinstance(item.get("relevance_score"), (int, float)) and item.get("relevance_score") > 0
+                if isinstance(item.get("relevance_score"), (int, float))
             ]
             if relevance_values:
                 st.subheader("Relevance Histogram")
                 st.caption("Higher values indicate stronger keyword match to your subject.")
                 st.bar_chart(pd.Series(relevance_values))
+                if all(value == 0 for value in relevance_values):
+                    st.caption("All relevance scores are 0. Refine keywords or add sources for better matches.")
             else:
-                st.caption("Relevance histogram not available (no positive relevance scores yet).")
+                st.caption("Relevance histogram not available (no numeric relevance scores yet).")
             evidence_df = pd.DataFrame(result["evidence"]).astype(str)
             st.dataframe(evidence_df, width="stretch", hide_index=True)
         else:
@@ -438,52 +442,68 @@ if submit:
         st.subheader("Resolved Target")
         resolved = result.get("resolved", {})
         resolved_rows = [{"key": key, "value": str(value)} for key, value in resolved.items()]
-        st.dataframe(resolved_rows, width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(resolved_rows).astype(str), width="stretch", hide_index=True)
 
         st.subheader("Macro Data")
         macro = result.get("macro", {})
         macro_rows = [{"key": key, "value": str(value)} for key, value in macro.items()]
-        st.dataframe(macro_rows, width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(macro_rows).astype(str), width="stretch", hide_index=True)
 
         st.subheader("Trade Signals")
         trade = result.get("trade_signals", {})
         trade_rows = []
         for key, payload in trade.items():
-            trade_rows.append({"indicator": key, "label": payload.get("label"), "value": str(payload.get("value"))})
-        st.dataframe(trade_rows, width="stretch", hide_index=True)
+            trade_rows.append(
+                {"indicator": str(key), "label": str(payload.get("label")), "value": str(payload.get("value"))}
+            )
+        st.dataframe(pd.DataFrame(trade_rows).astype(str), width="stretch", hide_index=True)
 
         st.subheader("Policy Signals")
         policy = result.get("policy_signals", {})
         policy_rows = []
         for key, payload in policy.items():
-            policy_rows.append({"indicator": key, "label": payload.get("label"), "value": str(payload.get("value"))})
-        st.dataframe(policy_rows, width="stretch", hide_index=True)
+            policy_rows.append(
+                {"indicator": str(key), "label": str(payload.get("label")), "value": str(payload.get("value"))}
+            )
+        st.dataframe(pd.DataFrame(policy_rows).astype(str), width="stretch", hide_index=True)
 
         st.subheader("Confidence Breakdown")
         conf_breakdown = result["scores"].get("confidence_breakdown", {})
         conf_breakdown_rows = [{"key": key, "value": str(value)} for key, value in conf_breakdown.items()]
-        st.dataframe(conf_breakdown_rows, width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(conf_breakdown_rows).astype(str), width="stretch", hide_index=True)
 
         st.subheader("Confidence Sources")
         conf_sources = result["scores"].get("confidence_sources", {})
         conf_sources_rows = [{"key": key, "value": str(value)} for key, value in conf_sources.items()]
-        st.dataframe(conf_sources_rows, width="stretch", hide_index=True)
+        st.dataframe(pd.DataFrame(conf_sources_rows).astype(str), width="stretch", hide_index=True)
 
         st.subheader("Query Plan")
-        st.dataframe([{"query": str(q)} for q in result.get("query_plan", [])], width="stretch", hide_index=True)
+        st.dataframe(
+            pd.DataFrame([{"query": str(q)} for q in result.get("query_plan", [])]).astype(str),
+            width="stretch",
+            hide_index=True,
+        )
 
         st.subheader("Tender Filters")
-        st.dataframe([{"filter": str(f)} for f in result.get("tender_filters", [])], width="stretch", hide_index=True)
+        st.dataframe(
+            pd.DataFrame([{"filter": str(f)} for f in result.get("tender_filters", [])]).astype(str),
+            width="stretch",
+            hide_index=True,
+        )
 
         st.subheader("Data Sources")
-        st.dataframe([{"source": str(s)} for s in result.get("data_sources", [])], width="stretch", hide_index=True)
+        st.dataframe(
+            pd.DataFrame([{"source": str(s)} for s in result.get("data_sources", [])]).astype(str),
+            width="stretch",
+            hide_index=True,
+        )
 
 st.markdown("---")
 st.subheader("Comparison View")
 st.caption("Compare multiple analyses side-by-side. Add items using the button above.")
 if st.session_state["comparisons"]:
     df = pd.DataFrame(st.session_state["comparisons"])
-    st.dataframe(df, width="stretch", hide_index=True)
+    st.dataframe(df.astype(str), width="stretch", hide_index=True)
     st.download_button(
         label="Download Comparison CSV",
         data=df.to_csv(index=False),
@@ -514,7 +534,7 @@ if uploaded_history:
         st.error("Failed to parse uploaded JSON.")
 if st.session_state["run_history"]:
     history_df = pd.DataFrame(st.session_state["run_history"])
-    st.dataframe(history_df, width="stretch", hide_index=True)
+    st.dataframe(history_df.astype(str), width="stretch", hide_index=True)
     st.download_button(
         label="Download Run History JSON",
         data=json.dumps(st.session_state["run_history"], ensure_ascii=False, indent=2),

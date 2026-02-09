@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def _escape(value: Any) -> str:
@@ -108,6 +108,100 @@ def _render_evidence(evidence: List[Dict[str, Any]]) -> str:
       </table>
     </section>
     """
+
+
+def build_score_narrative(result: Dict[str, Any]) -> Dict[str, Any]:
+    scores = result.get("scores", {})
+    evidence = result.get("evidence", [])
+    subject = result.get("subject", {})
+    macro = result.get("macro", {})
+    trade_signals = result.get("trade_signals", {})
+    policy_signals = result.get("policy_signals", {})
+
+    target = subject.get("target_name", "the target")
+    overall = scores.get("overall_score", 0)
+    confidence = scores.get("confidence", 0)
+    evidence_count = len(evidence)
+
+    tier = "Low"
+    if overall >= 70:
+        tier = "High"
+    elif overall >= 40:
+        tier = "Medium"
+
+    confidence_sources = scores.get("confidence_sources", {})
+    official_count = confidence_sources.get("official", 0)
+    media_count = confidence_sources.get("media", 0)
+    unknown_count = confidence_sources.get("unknown", 0)
+
+    macro_flags = []
+    if macro.get("gdp") is not None:
+        macro_flags.append("GDP")
+    if macro.get("population") is not None:
+        macro_flags.append("Population")
+
+    trade_available = sum(
+        1
+        for payload in trade_signals.values()
+        if isinstance(payload, dict) and payload.get("value") is not None
+    )
+    policy_available = sum(
+        1
+        for payload in policy_signals.values()
+        if isinstance(payload, dict) and payload.get("value") is not None
+    )
+
+    summary = (
+        f"{target} scores {overall} ({tier}) with confidence {confidence}. "
+        f"The assessment is based on {evidence_count} evidence items and the available macro, trade, and policy signals."
+    )
+
+    justification = [
+        f"Overall score {overall} reflects weighted demand, trade ease, risk, financial viability, and strategic fit.",
+        f"Confidence {confidence} is driven by {evidence_count} evidence items and source mix.",
+        f"Macro coverage: {', '.join(macro_flags) if macro_flags else 'no macro indicators available'}.",
+        f"Trade indicators with values: {trade_available}.",
+        f"Policy indicators with values: {policy_available}.",
+        f"Source mix: {official_count} official, {media_count} media, {unknown_count} unknown.",
+    ]
+
+    key_evidence = _summarize_key_evidence(evidence)
+
+    gaps = []
+    if official_count == 0:
+        gaps.append("No official sources detected; validate with primary data.")
+    if evidence_count < 5:
+        gaps.append("Evidence volume is limited; consider widening sources or keywords.")
+    if trade_available == 0:
+        gaps.append("Trade indicators are missing or null; confidence in demand signals is lower.")
+    if policy_available == 0:
+        gaps.append("Policy indicators are missing or null; regulatory risk may be under-scoped.")
+
+    return {
+        "summary": summary,
+        "justification": justification,
+        "key_evidence": key_evidence,
+        "gaps": gaps,
+    }
+
+
+def _summarize_key_evidence(evidence: List[Dict[str, Any]], limit: int = 3) -> List[str]:
+    scored = []
+    for item in evidence:
+        relevance = item.get("relevance_score")
+        relevance_value: Optional[float] = None
+        if isinstance(relevance, (int, float)):
+            relevance_value = float(relevance)
+        scored.append((relevance_value, item))
+
+    scored.sort(key=lambda pair: (pair[0] is None, -(pair[0] or 0)))
+    highlights = []
+    for _, item in scored[:limit]:
+        title = item.get("title") or "Untitled evidence"
+        source = item.get("source") or "unknown source"
+        quality = item.get("quality") or "unknown quality"
+        highlights.append(f"{title} ({source}, {quality})")
+    return highlights
 
 
 def _render_executive_summary(result: Dict[str, Any]) -> str:
@@ -235,6 +329,7 @@ def build_html_report(result: Dict[str, Any]) -> str:
     tender_filters_html = "<ul>" + "".join(f"<li>{_escape(item)}</li>" for item in tender_filters) + "</ul>"
 
     executive_summary = _render_executive_summary(result)
+    narrative = build_score_narrative(result)
     quality_legend = _render_quality_legend()
     key_takeaways = _render_key_takeaways(result)
     run_delta = _render_run_delta(result)
@@ -277,6 +372,16 @@ def build_html_report(result: Dict[str, Any]) -> str:
       {_render_kv_table("Subject", subject)}
       {_render_kv_table("Resolved Target", resolved)}
       {_render_kv_table("Macro Data", macro)}
+      <section>
+        <h2>Analyst Narrative</h2>
+        <p>{_escape(narrative["summary"])}</p>
+        <h3>Why this score</h3>
+        <ul>
+          { "".join(f"<li>{_escape(item)}</li>" for item in narrative["justification"]) }
+        </ul>
+        { "<h3>Key evidence highlights</h3><ul>" + "".join(f"<li>{_escape(item)}</li>" for item in narrative["key_evidence"]) + "</ul>" if narrative["key_evidence"] else "" }
+        { "<h3>Gaps to validate</h3><ul>" + "".join(f"<li>{_escape(item)}</li>" for item in narrative["gaps"]) + "</ul>" if narrative["gaps"] else "" }
+      </section>
       {quality_legend}
       {key_takeaways}
       {run_delta}
